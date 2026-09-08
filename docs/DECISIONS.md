@@ -73,3 +73,19 @@ lower body of the sprite so feet, not the visor, stop at walls.
 ## 2026-09-07 — window.crewfall debug handle
 `src/main.ts` exposes the Phaser game as `window.crewfall.game` for the browser console and for
 automated checks that step the game loop by hand. Harmless in play.
+
+## 2026-09-07 — HUD is its own scene
+Room label, key hints, Tab map and F3 text live in `src/ui/HudScene.ts`, a Phaser scene that runs
+on top of the Play scene so the world camera never moves them. The F3 walking-graph drawing lives
+in the world (`src/game/NavGraphView.ts`) because it is in world coordinates.
+
+## 2026-09-07 — Tab map and walking graph are pre-drawn textures
+Both are drawn once at start into a texture and simply shown or hidden, so holding Tab or F3
+costs nothing per frame even with thousands of graph edges.
+
+## 2026-09-07 — Corridors show their number in the room label
+The label reads "Corridor 4" rather than a bare "Corridor" so a corridor can be named precisely
+in bug reports and, later, in bot debugging.
+
+## 2026-09-07 — F3 items that wait for Phase 2
+The seed and the vision radii are Phase 2 features, so F3 shows "seed (Phase 2)" for now.

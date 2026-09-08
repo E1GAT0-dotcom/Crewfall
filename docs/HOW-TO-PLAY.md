@@ -9,8 +9,13 @@ Double-click `play.bat`. A browser tab opens with the game.
 | Key | Action |
 |---|---|
 | W A S D or arrow keys | Move |
-| Tab (hold) | Show the full map (step 4) |
-| F3 | Debug overlay on/off (step 4) |
+| Tab (hold) | Show the full map |
+| F3 | Debug overlay on/off |
+
+## What you see
+The name of the room you are in shows at the top-left. Hallways are called "Corridor 1", "Corridor 2"
+and so on. Hold Tab for the ship map; the cyan dot is you. F3 shows technical details and draws
+the walking graph that bots will use to find their way.
 
 ## Editing the map
 Open `assets/maps/kestrel.json` in any text editor. The `tiles` section is a picture of the ship,

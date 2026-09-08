@@ -6,7 +6,9 @@ import type { GameMap } from '../sim/map';
 import { createSim, stepSim, NO_INPUT, type PlayerInput, type SimState } from '../sim/sim';
 import type { SpritesManifest } from './assets';
 import { MapView } from './MapView';
+import { NavGraphView } from './NavGraphView';
 import { UnitView } from './UnitView';
+import { HudScene } from '../ui/HudScene';
 
 export interface PlaySceneData {
   map: GameMap;
@@ -28,6 +30,7 @@ export class PlayScene extends Phaser.Scene {
   private readonly tickMs = 1000 / gameConfig.tickRate;
 
   private mapView!: MapView;
+  private navView!: NavGraphView;
   private player!: UnitView;
   private keys!: Record<'W' | 'A' | 'S' | 'D' | 'UP' | 'DOWN' | 'LEFT' | 'RIGHT', Phaser.Input.Keyboard.Key>;
 
@@ -57,6 +60,14 @@ export class PlayScene extends Phaser.Scene {
     cam.startFollow(this.player.container, true, gameConfig.camera.followLerp, gameConfig.camera.followLerp);
 
     this.player.apply(this.sim.player.x, this.sim.player.y, this.sim.player);
+
+    this.navView = new NavGraphView(this, this.map);
+    this.scene.launch(HudScene.KEY);
+  }
+
+  /** F3: draws the walking graph over the floor. */
+  setNavGraphVisible(visible: boolean): void {
+    this.navView.setVisible(visible);
   }
 
   override update(_time: number, deltaMs: number): void {
