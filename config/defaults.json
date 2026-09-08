@@ -1,0 +1,27 @@
+{
+  "_help": [
+    "Default game settings (SPEC 12). The lobby computer changes these per game.",
+    "Ranges are enforced by src/sim/settings.ts."
+  ],
+  "map": "kestrel",
+  "players": 10,
+  "impostors": 2,
+  "difficulty": "normal",
+  "playerName": "You",
+  "playerColor": "cyan",
+  "killCooldownSec": 30,
+  "killDistance": "short",
+  "emergencyMeetings": 1,
+  "discussionSec": 15,
+  "votingSec": 60,
+  "anonymousVotes": false,
+  "confirmEjects": true,
+  "playerSpeed": 1.0,
+  "crewVision": 1.0,
+  "impostorVision": 1.5,
+  "commonTasks": 1,
+  "longTasks": 1,
+  "shortTasks": 2,
+  "taskBarUpdates": "always",
+  "visualTasks": true
+}

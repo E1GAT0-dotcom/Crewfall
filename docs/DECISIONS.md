@@ -88,3 +88,36 @@ in bug reports and, later, in bot debugging.
 
 ## 2026-09-07 — F3 items that wait for Phase 2
 The seed and the vision radii are Phase 2 features, so F3 shows "seed (Phase 2)" for now.
+
+## 2026-09-07 — Phase 1 signed off by Greg
+"A good skeleton for the rest." Phase 2 approved.
+
+## 2026-09-07 — The settings screen becomes an in-world lobby (spec change, Greg)
+Instead of a menu, the game opens in a lobby the player walks around in. A computer in the lobby
+opens the settings panel (players, impostors, difficulty, name, colour, seed, kill cooldown and
+range, meeting counts and timers, vision distances, speed, task counts, and so on) and a start
+button begins the game. Bots stand around the lobby so the player count is visible. This pulls
+most of SPEC §12 forward from Phase 7 into Phase 2. SPEC.md §12 updated.
+
+## 2026-09-07 — Phase 2 feel decisions (Greg)
+Player tasks are done by holding E at the spot with a progress ring until Phase 5 minigames.
+Bot chat in Phase 2 is a tiny generic set on purpose. Settings are remembered in the browser's
+own storage between launches (not a save system). Bot names come from a list of about 100.
+
+## 2026-09-07 — Kill range, task durations, report range
+Kill range "short" is 1.25 tiles centre to centre, "medium" 2, "long" 3. Report range 1.5 tiles.
+Task durations per type live in config/game.json. Bots add ±30% randomness to task time.
+
+## 2026-09-07 — Low objects do not block sight
+The emergency button tile blocks walking but not line of sight. Only walls and the outside block
+sight. Bots and the vision circle share this rule (`src/sim/vision.ts`).
+
+## 2026-09-07 — ?seed=123 in the address bar fixes the seed
+Handy for replaying a game or reporting a bug: the seed shows in F3, and adding `?seed=<number>`
+to the game's address gives the same game again with the same inputs. The lobby will also have
+a seed field.
+
+## 2026-09-07 — Phase 2 bot brain is decision-only
+`src/bots/brain.ts` holds one bot's state (goal, path, wait) and the Phase 2 decision layer:
+nearest task first with a little randomness, wander when done, re-path when stuck. Perception,
+memory, suspicion and voice slot in around this same state in Phase 3.

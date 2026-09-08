@@ -4,10 +4,16 @@
     "tickRate: simulation steps per second (fixed; rendering is smoothed between steps).",
     "player.speedTilesPerSec: base walking speed at the 1.0x setting.",
     "player.colliderRadiusPx: how fat the unit is for wall collision, in pixels.",
-    "camera.followLerp: 0..1, how quickly the camera catches up to the player each frame."
+    "camera.followLerp: 0..1, how quickly the camera catches up to the player each frame.",
+    "tasks.durationSec: seconds a task takes, per type. tasks.botJitter: bots vary their time by this fraction.",
+    "bots.wanderIdleSec: [min, max] seconds a bot loiters after wandering somewhere.",
+    "vision.baseRadiusTiles: how far a crew member sees at the 1.0x setting."
   ],
   "tickRate": 30,
-  "canvas": { "width": 1280, "height": 720 },
+  "canvas": {
+    "width": 1280,
+    "height": 720
+  },
   "tileSize": 32,
   "unitFrame": 64,
   "player": {
@@ -16,5 +22,29 @@
   },
   "camera": {
     "followLerp": 0.15
+  },
+  "tasks": {
+    "durationSec": {
+      "fix_wiring": 5,
+      "swipe_card": 4,
+      "upload_data": 10,
+      "fuel_engines": 12,
+      "clear_asteroids": 6,
+      "empty_chute": 5,
+      "align_dish": 5,
+      "calibrate_power": 4
+    },
+    "botJitter": 0.3
+  },
+  "bots": {
+    "waypointTolerancePx": 6,
+    "wanderIdleSec": [
+      2,
+      5
+    ],
+    "stuckTicks": 30
+  },
+  "vision": {
+    "baseRadiusTiles": 5.5
   }
 }

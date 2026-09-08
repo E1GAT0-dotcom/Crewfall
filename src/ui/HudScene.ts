@@ -2,8 +2,9 @@
 // Runs as its own scene so it is not affected by the world camera.
 
 import Phaser from 'phaser';
+import { describeGoal } from '../bots/brain';
 import type { GameMap } from '../sim/map';
-import { playerRegionName } from '../sim/sim';
+import { playerRegionName, unitRegionName } from '../sim/sim';
 import type { PlayScene } from '../game/PlayScene';
 
 const PLAY_SCENE_KEY = 'Play';
@@ -66,7 +67,7 @@ export class HudScene extends Phaser.Scene {
     this.debugText = this.add
       .text(this.scale.width - 16, 12, '', {
         fontFamily: STYLE.mono,
-        fontSize: '15px',
+        fontSize: '14px',
         color: STYLE.text,
         backgroundColor: 'rgba(11,13,18,0.8)',
         padding: { x: 10, y: 8 },
@@ -87,36 +88,40 @@ export class HudScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.F3)) {
       this.debugOn = !this.debugOn;
       this.debugText.setVisible(this.debugOn);
-      this.play.setNavGraphVisible(this.debugOn);
+      this.play.setDebugVisible(this.debugOn);
     }
     if (this.debugOn) this.debugText.setText(this.debugLines(region));
 
     const showMap = this.keys.TAB.isDown;
     if (showMap !== this.tabMap.visible) this.tabMap.setVisible(showMap);
     if (showMap) {
-      this.tabMapPlayer.setPosition(
-        this.tabMapOrigin.x + state.player.x * this.tabMapScale,
-        this.tabMapOrigin.y + state.player.y * this.tabMapScale,
-      );
+      const p = state.units[0];
+      if (p) this.tabMapPlayer.setPosition(this.tabMapOrigin.x + p.x * this.tabMapScale, this.tabMapOrigin.y + p.y * this.tabMapScale);
     }
   }
 
   private debugLines(region: string): string {
     const s = this.play.state;
     const ts = this.map.tileSize;
-    const tx = Math.floor(s.player.x / ts);
-    const ty = Math.floor(s.player.y / ts);
+    const p = s.units[0];
+    const tx = p ? Math.floor(p.x / ts) : 0;
+    const ty = p ? Math.floor(p.y / ts) : 0;
     const nav = this.map.nav;
     let edgeCount = 0;
     for (const list of nav.edges) edgeCount += list.length;
-    return [
-      `fps ${Math.round(this.game.loop.actualFps)}   tick ${s.tick}   seed (Phase 2)`,
-      `pos ${Math.round(s.player.x)}, ${Math.round(s.player.y)} px   tile ${tx}, ${ty}`,
-      `room ${region}`,
-      `facing ${s.player.facing > 0 ? 'right' : 'left'}   ${s.player.moving ? 'moving' : 'still'}`,
-      `nav graph ${nav.nodes.length} nodes, ${edgeCount / 2} edges`,
-      `map ${this.map.name} ${this.map.width}x${this.map.height} tiles`,
-    ].join('\n');
+    const lines = [
+      `fps ${Math.round(this.game.loop.actualFps)}   tick ${s.tick}   seed ${s.seed}`,
+      `you: ${p?.name} (${p?.role})   pos ${Math.round(p?.x ?? 0)}, ${Math.round(p?.y ?? 0)}   tile ${tx}, ${ty}   ${region}`,
+      `crew tasks ${s.crewTasks.done}/${s.crewTasks.total}   nav ${nav.nodes.length} nodes, ${edgeCount / 2} edges`,
+      '',
+    ];
+    for (const bot of s.bots) {
+      const u = s.units[bot.unitId];
+      if (!u) continue;
+      const role = u.role === 'impostor' ? 'IMP ' : 'crew';
+      lines.push(`${u.name.padEnd(6)} ${role}  ${unitRegionName(u, this.map).padEnd(11)} ${describeGoal(bot)}`);
+    }
+    return lines.join('\n');
   }
 
   /** Draws the whole ship small enough to fit the screen, once, into a hidden container. */

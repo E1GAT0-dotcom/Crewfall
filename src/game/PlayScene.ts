@@ -1,9 +1,11 @@
-// The main scene: runs the fixed-tick simulation, draws the map and the player, follows with the camera.
+// The main scene: runs the fixed-tick simulation, draws the map and every unit, follows the player.
 
 import Phaser from 'phaser';
 import gameConfig from '../../config/game.json';
 import type { GameMap } from '../sim/map';
-import { createSim, stepSim, NO_INPUT, type PlayerInput, type SimState } from '../sim/sim';
+import { randomSeed, seedFromText } from '../sim/rng';
+import { defaultSettings, clampSettings, type GameSettings } from '../sim/settings';
+import { COLORS, createGame, stepSim, NO_INPUT, type PlayerInput, type SimState } from '../sim/sim';
 import type { SpritesManifest } from './assets';
 import { MapView } from './MapView';
 import { NavGraphView } from './NavGraphView';
@@ -13,25 +15,32 @@ import { HudScene } from '../ui/HudScene';
 export interface PlaySceneData {
   map: GameMap;
   sprites: SpritesManifest;
+  settings?: GameSettings;
+  seed?: number;
 }
-
-const PLAYER_COLOUR = 0x2fd3e6; // Cyan, the default player colour (SPEC 12)
 
 /** Keys Phaser must capture so the browser does not act on them (Tab moves focus, F3 opens search). */
 const CAPTURED_KEYS = ['TAB', 'F3', 'SPACE', 'UP', 'DOWN', 'LEFT', 'RIGHT'];
+
+const DEBUG_PATH_COLOUR = 0xffc857;
 
 export class PlayScene extends Phaser.Scene {
   static readonly KEY = 'Play';
 
   private map!: GameMap;
+  private settings!: GameSettings;
+  private seed = 0;
   private sim!: SimState;
-  private prevSim!: SimState;
+  /** Positions at the previous tick, per unit id, for smooth drawing between ticks. */
+  private prevPos: { x: number; y: number }[] = [];
   private accumulatorMs = 0;
   private readonly tickMs = 1000 / gameConfig.tickRate;
 
   private mapView!: MapView;
   private navView!: NavGraphView;
-  private player!: UnitView;
+  private unitViews: UnitView[] = [];
+  private debugGraphics!: Phaser.GameObjects.Graphics;
+  private debugOn = false;
   private keys!: Record<'W' | 'A' | 'S' | 'D' | 'UP' | 'DOWN' | 'LEFT' | 'RIGHT', Phaser.Input.Keyboard.Key>;
 
   constructor() {
@@ -40,34 +49,37 @@ export class PlayScene extends Phaser.Scene {
 
   init(data: PlaySceneData): void {
     this.map = data.map;
+    this.settings = clampSettings(data.settings ?? defaultSettings(), { playerCap: this.map.playerCap, impostorMax: this.map.impostors.max });
+    this.seed = data.seed ?? seedFromUrl() ?? randomSeed();
   }
 
   create(): void {
     this.mapView = new MapView(this, this.map);
-    this.sim = createSim(this.map);
-    this.prevSim = this.sim;
-    this.player = new UnitView(this, PLAYER_COLOUR);
+    this.sim = createGame(this.map, this.settings, this.seed);
+    this.prevPos = this.sim.units.map((u) => ({ x: u.x, y: u.y }));
+
+    this.unitViews = this.sim.units.map((u) => {
+      const colour = COLORS.find((c) => c.id === u.colorId)?.tint ?? '#ffffff';
+      const view = new UnitView(this, Phaser.Display.Color.HexStringToColor(colour).color, u.name);
+      view.apply(u.x, u.y, u);
+      return view;
+    });
 
     const keyboard = this.input.keyboard;
     if (!keyboard) throw new Error('Keyboard input is not available.');
     keyboard.addCapture(CAPTURED_KEYS);
     this.keys = keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT') as PlayScene['keys'];
 
+    const playerView = this.unitViews[0] as UnitView;
     const cam = this.cameras.main;
     cam.setBounds(0, 0, this.mapView.widthPx, this.mapView.heightPx);
     cam.setRoundPixels(true);
-    cam.centerOn(this.sim.player.x, this.sim.player.y);
-    cam.startFollow(this.player.container, true, gameConfig.camera.followLerp, gameConfig.camera.followLerp);
-
-    this.player.apply(this.sim.player.x, this.sim.player.y, this.sim.player);
+    cam.centerOn(playerView.container.x, playerView.container.y);
+    cam.startFollow(playerView.container, true, gameConfig.camera.followLerp, gameConfig.camera.followLerp);
 
     this.navView = new NavGraphView(this, this.map);
+    this.debugGraphics = this.add.graphics().setDepth(6).setVisible(false);
     this.scene.launch(HudScene.KEY);
-  }
-
-  /** F3: draws the walking graph over the floor. */
-  setNavGraphVisible(visible: boolean): void {
-    this.navView.setVisible(visible);
   }
 
   override update(_time: number, deltaMs: number): void {
@@ -76,15 +88,27 @@ export class PlayScene extends Phaser.Scene {
     this.accumulatorMs += Math.min(deltaMs, this.tickMs * 5);
     const input = this.readInput();
     while (this.accumulatorMs >= this.tickMs) {
-      this.prevSim = this.sim;
-      this.sim = stepSim(this.sim, input, this.map, gameConfig);
+      for (let i = 0; i < this.sim.units.length; i++) {
+        const u = this.sim.units[i];
+        const p = this.prevPos[i];
+        if (u && p) {
+          p.x = u.x;
+          p.y = u.y;
+        }
+      }
+      stepSim(this.sim, input, this.map, gameConfig);
       this.accumulatorMs -= this.tickMs;
     }
     // Rendering interpolates between the last two ticks for smooth motion.
     const alpha = this.accumulatorMs / this.tickMs;
-    const x = Phaser.Math.Linear(this.prevSim.player.x, this.sim.player.x, alpha);
-    const y = Phaser.Math.Linear(this.prevSim.player.y, this.sim.player.y, alpha);
-    this.player.apply(x, y, this.sim.player);
+    for (let i = 0; i < this.sim.units.length; i++) {
+      const u = this.sim.units[i];
+      const p = this.prevPos[i];
+      const view = this.unitViews[i];
+      if (!u || !p || !view) continue;
+      view.apply(Phaser.Math.Linear(p.x, u.x, alpha), Phaser.Math.Linear(p.y, u.y, alpha), u);
+    }
+    if (this.debugOn) this.drawDebugPaths();
   }
 
   /** Current simulation state, for overlays and the HUD. */
@@ -94,6 +118,34 @@ export class PlayScene extends Phaser.Scene {
 
   get gameMap(): GameMap {
     return this.map;
+  }
+
+  /** F3: walking graph and bot paths over the floor. */
+  setDebugVisible(visible: boolean): void {
+    this.debugOn = visible;
+    this.navView.setVisible(visible);
+    this.debugGraphics.setVisible(visible);
+    if (!visible) this.debugGraphics.clear();
+  }
+
+  private drawDebugPaths(): void {
+    const g = this.debugGraphics;
+    const ts = this.map.tileSize;
+    g.clear();
+    g.lineStyle(2, DEBUG_PATH_COLOUR, 0.9);
+    for (const bot of this.sim.bots) {
+      const unit = this.sim.units[bot.unitId];
+      if (!unit || bot.pathIndex >= bot.path.length) continue;
+      g.beginPath();
+      g.moveTo(unit.x, unit.y);
+      for (let i = bot.pathIndex; i < bot.path.length; i++) {
+        const wp = bot.path[i];
+        if (wp) g.lineTo(wp[0] * ts + ts / 2, wp[1] * ts + ts / 2);
+      }
+      g.strokePath();
+      const last = bot.path[bot.path.length - 1];
+      if (last) g.fillStyle(DEBUG_PATH_COLOUR, 0.9).fillCircle(last[0] * ts + ts / 2, last[1] * ts + ts / 2, 5);
+    }
   }
 
   private readInput(): PlayerInput {
@@ -107,4 +159,10 @@ export class PlayScene extends Phaser.Scene {
     if (dx === 0 && dy === 0) return NO_INPUT;
     return { dx, dy };
   }
+}
+
+/** ?seed=123 in the address bar fixes the seed, handy for replaying a game. */
+function seedFromUrl(): number | null {
+  const value = new URLSearchParams(window.location.search).get('seed');
+  return value ? seedFromText(value) : null;
 }

@@ -7,7 +7,7 @@ export default defineConfig({
   // Everything under assets/ is served as-is from the site root, e.g. /maps/kestrel.json.
   publicDir: 'assets',
   server: {
-    port: 5173,
+    port: Number(process.env.PORT) || 5173,
     strictPort: false,
     host: '127.0.0.1',
   },

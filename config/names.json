@@ -1,0 +1,25 @@
+{
+  "_help": "Bot names. Short and pronounceable. Each game picks names with different first letters so nobody is confused.",
+  "names": [
+    "Ash", "Ada", "Abe", "Ali", "Ava",
+    "Bo", "Bea", "Ben", "Bix", "Bry",
+    "Cy", "Cal", "Cleo", "Cody", "Cora",
+    "Dot", "Dax", "Dee", "Dov", "Duke",
+    "Eli", "Eve", "Enzo", "Esme", "Ezra",
+    "Fen", "Fay", "Finn", "Flo", "Fritz",
+    "Gus", "Gia", "Gil", "Gwen", "Gabe",
+    "Hal", "Hue", "Ivy", "Ike", "Ida",
+    "Jo", "Jax", "Jem", "Jude", "June",
+    "Kit", "Kai", "Kip", "Kaz", "Kyra",
+    "Lu", "Lex", "Liv", "Lou", "Luca",
+    "Mo", "Max", "Mia", "Milo", "Mara",
+    "Nia", "Ned", "Nox", "Nell", "Nate",
+    "Oz", "Oli", "Opal", "Otto", "Orla",
+    "Pip", "Pax", "Pia", "Pru", "Pete",
+    "Quin", "Ray", "Rex", "Rue", "Remy",
+    "Sal", "Sam", "Sky", "Suki", "Silas",
+    "Tam", "Tess", "Tim", "Tobi", "Trix",
+    "Uma", "Val", "Vic", "Vera", "Wes",
+    "Wren", "Xan", "Yuki", "Zed", "Zia"
+  ]
+}

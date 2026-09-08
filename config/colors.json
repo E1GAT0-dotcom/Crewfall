@@ -1,0 +1,20 @@
+{
+  "_help": "The 15 unit colours. 'tint' is applied to the grayscale base sprite; 'text' is used for names in chat and menus.",
+  "colors": [
+    { "id": "cyan",     "name": "Cyan",     "tint": "#2fd3e6", "text": "#5ee6f5" },
+    { "id": "red",      "name": "Red",      "tint": "#d93a3a", "text": "#ff6b6b" },
+    { "id": "blue",     "name": "Blue",     "tint": "#3a63d9", "text": "#6f8fff" },
+    { "id": "green",    "name": "Green",    "tint": "#3aae4f", "text": "#6fdc84" },
+    { "id": "yellow",   "name": "Yellow",   "tint": "#e6cf2f", "text": "#ffe75e" },
+    { "id": "orange",   "name": "Orange",   "tint": "#e6802f", "text": "#ffa45e" },
+    { "id": "purple",   "name": "Purple",   "tint": "#8a3ad9", "text": "#b675ff" },
+    { "id": "pink",     "name": "Pink",     "tint": "#e63a9e", "text": "#ff7ac6" },
+    { "id": "white",    "name": "White",    "tint": "#e8ecf2", "text": "#ffffff" },
+    { "id": "slate",    "name": "Slate",    "tint": "#5a6275", "text": "#9aa3b8" },
+    { "id": "lime",     "name": "Lime",     "tint": "#9fe63a", "text": "#c6ff6f" },
+    { "id": "teal",     "name": "Teal",     "tint": "#2f9e8a", "text": "#5ed6c0" },
+    { "id": "brown",    "name": "Brown",    "tint": "#8a5a2f", "text": "#c48a55" },
+    { "id": "magenta",  "name": "Magenta",  "tint": "#c62fd9", "text": "#e86fff" },
+    { "id": "lavender", "name": "Lavender", "tint": "#a68ae6", "text": "#cbb8ff" }
+  ]
+}
