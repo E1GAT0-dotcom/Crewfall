@@ -4,9 +4,3 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
-
-# Local working files, not part of the published project
-CLAUDE.md
-KICKOFF-PHASE-1.md
-SETUP.md
-.claude/
