@@ -9,8 +9,9 @@ export function validateMap(map: GameMap): string[] {
   const at = ([x, y]: TilePos) => `(${x}, ${y})`;
 
   // --- spawn room and button ---
-  const buttonRegion = neighbouringRoom(map, map.button);
-  if (!buttonRegion) add(`The emergency button at ${at(map.button)} is not inside a room.`);
+  if (!map.button) add('A playable map needs exactly one emergency button tile "B".');
+  const buttonRegion = map.button ? neighbouringRoom(map, map.button) : null;
+  if (map.button && !buttonRegion) add(`The emergency button at ${at(map.button)} is not inside a room.`);
   if (map.spawns.length < map.playerCap) {
     add(`Only ${map.spawns.length} spawn tiles "S" but playerCap is ${map.playerCap}. Every player needs a spawn tile.`);
   }

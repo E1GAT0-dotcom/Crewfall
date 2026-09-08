@@ -130,3 +130,21 @@ moment every few seconds (half the time turning to look around); they hesitate a
 they leave spawn at their own time; one time in seven they go and look at a room before working;
 and the next task is chosen with distance-weighted randomness rather than strictly nearest.
 Tests in `tests/sim.test.ts` ("bot feel") guard these.
+
+## 2026-09-07 — The settings panel is plain HTML over the canvas
+Typing a name and clicking through twenty settings is far easier in a normal HTML form than in
+Phaser-drawn widgets. `src/ui/SettingsPanel.ts` builds the panel from a list of setting rows, so a
+new setting is one line. The game's keyboard is paused while the panel is open. Esc or "Done"
+closes it; the lobby then rebuilds so the player count, name and colour take effect at once (the
+player keeps their spot).
+
+## 2026-09-07 — One scene for lobby and match
+`PlayScene` runs both the lobby (mode "lobby": no roles, no tasks, a settings computer and a start
+pad, no darkness) and the match (mode "game"). Starting the match restarts the scene with the
+Kestrel map and the lobby's seed, so the bots you saw in the lobby are the bots you play with.
+
+## 2026-09-07 — Darkness is a masked sheet
+A dark sheet covers the screen; a hole in the shape of what the player can see (200 rays from the
+player, each stopped by the first wall or the vision radius) is cut with a geometry mask. Units
+outside that shape are not drawn at all, so nothing leaks through the dark. F3 lightens the sheet
+and draws every unit's vision circle so what bots can see is visible.

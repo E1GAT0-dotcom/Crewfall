@@ -30,6 +30,8 @@ export class HudScene extends Phaser.Scene {
   private play!: PlayScene;
   private map!: GameMap;
   private roomLabel!: Phaser.GameObjects.Text;
+  private promptText!: Phaser.GameObjects.Text;
+  private hintText!: Phaser.GameObjects.Text;
   private debugText!: Phaser.GameObjects.Text;
   private debugOn = false;
   private tabMap!: Phaser.GameObjects.Container;
@@ -55,14 +57,31 @@ export class HudScene extends Phaser.Scene {
       .setShadow(0, 2, '#000000', 4, false, true)
       .setDepth(10);
 
-    this.add
-      .text(this.scale.width / 2, this.scale.height - 14, 'WASD / arrows: move    Tab (hold): map    F3: debug', {
-        fontFamily: STYLE.font,
-        fontSize: '15px',
-        color: STYLE.dim,
-      })
+    const lobby = this.play.simMode === 'lobby';
+    this.hintText = this.add
+      .text(
+        this.scale.width / 2,
+        this.scale.height - 14,
+        lobby
+          ? 'Walk to the SETTINGS computer or the START pad and press E.    WASD / arrows: move    F3: debug'
+          : 'WASD / arrows: move    E: use    Tab (hold): map    F3: debug',
+        { fontFamily: STYLE.font, fontSize: '15px', color: STYLE.dim },
+      )
       .setOrigin(0.5, 1)
       .setDepth(10);
+
+    this.promptText = this.add
+      .text(this.scale.width / 2, this.scale.height - 48, '', {
+        fontFamily: STYLE.font,
+        fontSize: '20px',
+        fontStyle: 'bold',
+        color: STYLE.text,
+        backgroundColor: 'rgba(11,13,18,0.75)',
+        padding: { x: 14, y: 6 },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(10)
+      .setVisible(false);
 
     this.debugText = this.add
       .text(this.scale.width - 16, 12, '', {
@@ -85,6 +104,15 @@ export class HudScene extends Phaser.Scene {
     const region = playerRegionName(state, this.map) ?? '';
     if (this.roomLabel.text !== region) this.roomLabel.setText(region);
 
+    const prompt = this.play.isPanelOpen ? null : this.play.prompt;
+    if (prompt) {
+      if (this.promptText.text !== prompt) this.promptText.setText(prompt);
+      this.promptText.setVisible(true);
+    } else {
+      this.promptText.setVisible(false);
+    }
+    if (this.play.isPanelOpen) return;
+
     if (Phaser.Input.Keyboard.JustDown(this.keys.F3)) {
       this.debugOn = !this.debugOn;
       this.debugText.setVisible(this.debugOn);
@@ -92,7 +120,7 @@ export class HudScene extends Phaser.Scene {
     }
     if (this.debugOn) this.debugText.setText(this.debugLines(region));
 
-    const showMap = this.keys.TAB.isDown;
+    const showMap = this.keys.TAB.isDown && this.play.simMode === 'game';
     if (showMap !== this.tabMap.visible) this.tabMap.setVisible(showMap);
     if (showMap) {
       const p = state.units[0];
@@ -110,7 +138,7 @@ export class HudScene extends Phaser.Scene {
     let edgeCount = 0;
     for (const list of nav.edges) edgeCount += list.length;
     const lines = [
-      `fps ${Math.round(this.game.loop.actualFps)}   tick ${s.tick}   seed ${s.seed}`,
+      `fps ${Math.round(this.game.loop.actualFps)}   tick ${s.tick}   seed ${s.seed}   ${s.mode}`,
       `you: ${p?.name} (${p?.role})   pos ${Math.round(p?.x ?? 0)}, ${Math.round(p?.y ?? 0)}   tile ${tx}, ${ty}   ${region}`,
       `crew tasks ${s.crewTasks.done}/${s.crewTasks.total}   nav ${nav.nodes.length} nodes, ${edgeCount / 2} edges`,
       '',
@@ -154,9 +182,10 @@ export class HudScene extends Phaser.Scene {
         g.fillStyle(colour, 1).fillRect(x * cell, y * cell, Math.ceil(cell), Math.ceil(cell));
       }
     }
-    g.generateTexture('tabmap', Math.ceil(drawnW), Math.ceil(drawnH));
+    const key = `tabmap:${map.name}`;
+    if (!this.textures.exists(key)) g.generateTexture(key, Math.ceil(drawnW), Math.ceil(drawnH));
     g.destroy();
-    const picture = this.add.image(ox, oy, 'tabmap').setOrigin(0, 0);
+    const picture = this.add.image(ox, oy, key).setOrigin(0, 0);
 
     const labels: Phaser.GameObjects.Text[] = [];
     for (const room of map.rooms) {

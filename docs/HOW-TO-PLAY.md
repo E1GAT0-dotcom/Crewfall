@@ -5,12 +5,27 @@
 ## Starting the game
 Double-click `play.bat`. A browser tab opens with the game.
 
-## Controls (Phase 1)
+## The lobby
+The game opens in a lobby with you and the bots. Walk to the **SETTINGS** computer and press **E**
+to change the game: how many players and impostors, your name and colour, kill cooldown and
+distance, meeting timers, how far crew and impostors can see, walking speed, task counts, and the
+seed. Press Esc or Done to close; your choices are remembered next time. Stand on the green
+**START** pad and press **E** to begin.
+
+A seed is a number that decides everything random in a game. Leave it empty for a fresh game each
+time, or type one to replay the same game (F3 shows the current seed).
+
+## Controls
 | Key | Action |
 |---|---|
 | W A S D or arrow keys | Move |
-| Tab (hold) | Show the full map |
+| E or Space | Use (settings computer, start pad) |
+| Tab (hold) | Show the full map (in a match) |
 | F3 | Debug overlay on/off |
+
+## Seeing
+In a match you see only a circle around you, cut off by walls. Crew and impostors see different
+distances (settings). Bots follow exactly the same rule: what they cannot see, they do not know.
 
 ## What you see
 The name of the room you are in shows at the top-left. Hallways are called "Corridor 1", "Corridor 2"

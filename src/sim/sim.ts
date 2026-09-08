@@ -15,6 +15,9 @@ import { buildTaskList, chooseCommonTypes, countStages, type Task, type TaskStag
 
 export type Role = 'crew' | 'impostor';
 
+/** 'lobby': everyone is crew with no tasks, bots just mill about. 'game': a real match. */
+export type SimMode = 'lobby' | 'game';
+
 export interface SimConfig {
   readonly tickRate: number;
   readonly tileSize: number;
@@ -73,6 +76,7 @@ export interface Unit {
 }
 
 export interface SimState {
+  readonly mode: SimMode;
   readonly seed: number;
   readonly settings: GameSettings;
   readonly rng: Rng;
@@ -95,10 +99,10 @@ interface ColorEntry {
 export const COLORS: readonly ColorEntry[] = colorsJson.colors;
 
 /** Sets up a new game: names, colours, roles, spawn positions and task lists. */
-export function createGame(map: GameMap, settings: GameSettings, seed: number, config: SimConfig): SimState {
+export function createGame(map: GameMap, settings: GameSettings, seed: number, config: SimConfig, mode: SimMode = 'game'): SimState {
   const rng = new Rng(seed);
   const count = Math.max(4, Math.min(settings.players, map.playerCap, map.spawns.length));
-  const impostorCount = Math.max(1, Math.min(settings.impostors, map.impostors.max, Math.floor((count - 1) / 2)));
+  const impostorCount = mode === 'lobby' ? 0 : Math.max(1, Math.min(settings.impostors, map.impostors.max, Math.floor((count - 1) / 2)));
 
   // Roles: shuffle all ids and take the first few as impostors. The player's odds are impostors/players.
   const impostorIds = new Set(rng.shuffle(range(count)).slice(0, impostorCount));
@@ -124,11 +128,12 @@ export function createGame(map: GameMap, settings: GameSettings, seed: number, c
       y: spawn[1] * map.tileSize + half,
       facing: 1,
       moving: false,
-      tasks: buildTaskList(map, rng, commonTypes, counts, id),
+      tasks: mode === 'lobby' ? [] : buildTaskList(map, rng, commonTypes, counts, id),
     });
   }
   const bots = units.filter((u) => !u.isPlayer).map((u) => createBotState(u.id, rng, config));
   const state: SimState = {
+    mode,
     seed,
     settings,
     rng,

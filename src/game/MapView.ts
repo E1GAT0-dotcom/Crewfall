@@ -46,8 +46,8 @@ export class MapView {
         const kind = map.tileAt(x, y);
         let index: number = TILE_INDEX.void;
         if (kind === 'wall') index = TILE_INDEX.wall;
-        else if (kind === 'floor' || kind === 'button') {
-          index = map.regionAt(x, y)?.kind === 'room' || kind === 'button' ? TILE_INDEX.roomFloor : TILE_INDEX.corridorFloor;
+        else if (kind === 'floor' || kind === 'button' || kind === 'object') {
+          index = map.regionAt(x, y)?.kind === 'room' || kind !== 'floor' ? TILE_INDEX.roomFloor : TILE_INDEX.corridorFloor;
         }
         layer.putTileAt(index, x, y);
       }
@@ -72,11 +72,38 @@ export class MapView {
         .setDepth(1);
     }
 
-    // Emergency button: a red disc on its tile.
-    const [bx, by] = map.button;
     const g = scene.add.graphics().setDepth(2);
-    g.fillStyle(COLORS.buttonRim, 1).fillCircle(bx * ts + ts / 2, by * ts + ts / 2, ts * 0.42);
-    g.fillStyle(COLORS.button, 1).fillCircle(bx * ts + ts / 2, by * ts + ts / 2, ts * 0.3);
+    // Emergency button: a red disc on its tile.
+    if (map.button) {
+      const [bx, by] = map.button;
+      g.fillStyle(COLORS.buttonRim, 1).fillCircle(bx * ts + ts / 2, by * ts + ts / 2, ts * 0.42);
+      g.fillStyle(COLORS.button, 1).fillCircle(bx * ts + ts / 2, by * ts + ts / 2, ts * 0.3);
+    }
+    // Usable objects (lobby computer, start pad). Placeholder drawings.
+    for (const obj of map.objects) {
+      const x = obj.pos[0] * ts;
+      const y = obj.pos[1] * ts;
+      const w = obj.size[0] * ts;
+      const h = obj.size[1] * ts;
+      if (obj.type === 'computer') {
+        g.fillStyle(0x1a1e2a, 1).fillRoundedRect(x + 2, y + 4, w - 4, h - 6, 4);
+        g.fillStyle(0x2fd3e6, 1).fillRect(x + 8, y + 9, w - 16, h - 18);
+        g.fillStyle(0xd8f6fb, 0.8).fillRect(x + 12, y + 12, w - 40, 3);
+        scene.add
+          .text(x + w / 2, y - 6, 'SETTINGS', { fontFamily: 'system-ui, sans-serif', fontSize: '12px', fontStyle: 'bold', color: COLORS.label })
+          .setOrigin(0.5, 1)
+          .setDepth(2);
+      } else if (obj.type === 'start') {
+        g.fillStyle(0x1f7a3a, 1).fillCircle(x + w / 2, y + h / 2, Math.min(w, h) * 0.46);
+        g.fillStyle(0x3ccf6a, 1).fillCircle(x + w / 2, y + h / 2, Math.min(w, h) * 0.36);
+        scene.add
+          .text(x + w / 2, y + h / 2, 'START', { fontFamily: 'system-ui, sans-serif', fontSize: '14px', fontStyle: 'bold', color: '#0b2a14' })
+          .setOrigin(0.5)
+          .setDepth(2);
+      } else {
+        g.fillStyle(0x596279, 1).fillRect(x + 2, y + 2, w - 4, h - 4);
+      }
+    }
   }
 
   /** Draws the placeholder tile graphics once into a texture the tilemap can use. */

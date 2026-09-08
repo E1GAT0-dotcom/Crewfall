@@ -187,14 +187,14 @@ describe('map rule checker catches mistakes', () => {
 
   it('reports a room without a task spot', () => {
     const json = kestrelJson();
-    json.tasks = json.tasks.filter((t) => t.room !== 'Weapons');
+    json.tasks = (json.tasks ?? []).filter((t) => t.room !== 'Weapons');
     const problems = validateMap(loadMap(json));
     expect(problems).toContain('Room "Weapons" has no task spot. Every room needs at least one (SPEC 6.2).');
   });
 
   it('reports a task spot placed on a wall or in the wrong room', () => {
     const json = kestrelJson();
-    const first = json.tasks[0];
+    const first = (json.tasks ?? [])[0];
     if (!first) throw new Error('no tasks');
     first.pos = [0, 0];
     const problems = validateMap(loadMap(json));
@@ -218,8 +218,14 @@ describe('map rule checker catches mistakes', () => {
     setTile(bad, 5, 5, '?');
     expect(() => loadMap(bad)).toThrow(/Unknown tile character/);
 
+    // A missing button loads (the lobby has none) but the rule checker flags it for a playable map.
     const noButton = kestrelJson();
     setTile(noButton, 31, 28, '.');
-    expect(() => loadMap(noButton)).toThrow(/exactly one emergency button/);
+    const loaded = loadMap(noButton);
+    expect(loaded.button).toBeNull();
+    expect(validateMap(loaded).some((p) => p.includes('emergency button'))).toBe(true);
+    const twoButtons = kestrelJson();
+    setTile(twoButtons, 30, 28, 'B');
+    expect(() => loadMap(twoButtons)).toThrow(/at most one/);
   });
 });

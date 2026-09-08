@@ -4,7 +4,8 @@
 // The map file format is documented in the "_help" field of assets/maps/kestrel.json.
 
 export type TilePos = readonly [number, number];
-export type TileKind = 'void' | 'wall' | 'floor' | 'button';
+/** 'object' is solid furniture (a console, a pad): blocks walking, not sight. */
+export type TileKind = 'void' | 'wall' | 'floor' | 'button' | 'object';
 export type RegionKind = 'room' | 'corridor';
 
 /** Rectangle in tile units: x, y of the top-left tile, then width and height. */
@@ -29,10 +30,23 @@ export interface MapJson {
   tileSize: number;
   tiles: string[];
   rooms: { name: string; rect: [number, number, number, number]; deadEnd?: boolean }[];
-  vents: { id: string; room: string; pos: [number, number]; network: number }[];
-  sabotage: { lights: Panel[]; reactor: Panel[]; o2: Panel[]; comms: Panel[] };
-  doors: { room: string; tiles: [number, number][] }[];
-  tasks: { id: string; task: string; stage?: number; room: string; pos: [number, number] }[];
+  vents?: { id: string; room: string; pos: [number, number]; network: number }[];
+  sabotage?: { lights: Panel[]; reactor: Panel[]; o2: Panel[]; comms: Panel[] };
+  doors?: { room: string; tiles: [number, number][] }[];
+  tasks?: { id: string; task: string; stage?: number; room: string; pos: [number, number] }[];
+  objects?: { id: string; type: string; room: string; pos: [number, number]; size?: [number, number] }[];
+  playable?: boolean;
+}
+
+/** Something usable in the world that is not a task, vent or panel: the lobby computer, the start pad. */
+export interface MapObject {
+  readonly id: string;
+  readonly type: string;
+  readonly room: string;
+  /** Top-left tile. */
+  readonly pos: TilePos;
+  /** Size in tiles; defaults to 1 x 1. */
+  readonly size: readonly [number, number];
 }
 
 /** A room, or a stretch of corridor between rooms. Every walkable tile belongs to exactly one. */
@@ -107,11 +121,15 @@ export interface GameMap {
   readonly regions: readonly Region[];
   readonly rooms: readonly Region[];
   readonly spawns: readonly TilePos[];
-  readonly button: TilePos;
+  /** The emergency button tile. Playable maps have one; the lobby has none. */
+  readonly button: TilePos | null;
   readonly vents: readonly Vent[];
   readonly sabotage: SabotagePanels;
   readonly doors: readonly DoorGroup[];
   readonly tasks: readonly TaskSpot[];
+  readonly objects: readonly MapObject[];
+  /** False for the lobby. */
+  readonly playable: boolean;
   readonly nav: NavGraph;
   tileAt(x: number, y: number): TileKind;
   isWalkable(x: number, y: number): boolean;
@@ -132,6 +150,7 @@ const TILE_CHARS: Record<string, TileKind> = {
   ' ': 'void',
   S: 'floor',
   B: 'button',
+  O: 'object',
 };
 
 const SQRT2 = Math.SQRT2;
@@ -169,7 +188,7 @@ export function checkMapJson(raw: unknown): MapJson {
     if (row.length !== width) fail(`Tile row ${y} has ${row.length} characters but row 0 has ${width}. Every row must be the same length.`);
     for (let x = 0; x < row.length; x++) {
       const ch = row[x] as string;
-      if (!(ch in TILE_CHARS)) fail(`Unknown tile character "${ch}" at column ${x}, row ${y}. Allowed: # . space S B`);
+      if (!(ch in TILE_CHARS)) fail(`Unknown tile character "${ch}" at column ${x}, row ${y}. Allowed: # . space S B O`);
     }
   });
   if (!Array.isArray(m.rooms) || m.rooms.length === 0) fail('Map needs at least one room in "rooms".');
@@ -189,12 +208,18 @@ export function checkMapJson(raw: unknown): MapJson {
       }
     }
   };
+  // The lists below are optional so a small map like the lobby can leave them out.
+  m.vents ??= [];
+  m.doors ??= [];
+  m.tasks ??= [];
+  m.objects ??= [];
+  m.sabotage ??= { lights: [], reactor: [], o2: [], comms: [] };
   posList(m.vents, 'vents');
   for (const v of m.vents as Record<string, unknown>[]) {
     if (typeof v.id !== 'string' || !Number.isInteger(v.network)) fail('Every vent needs an "id" and a whole-number "network".');
   }
-  if (!isRecord(m.sabotage)) fail('Map needs a "sabotage" section with lights, reactor, o2 and comms.');
-  for (const key of ['lights', 'reactor', 'o2', 'comms']) posList(m.sabotage[key], `sabotage.${key}`);
+  if (!isRecord(m.sabotage)) fail('Map "sabotage" must have lights, reactor, o2 and comms lists.');
+  for (const key of ['lights', 'reactor', 'o2', 'comms']) posList(m.sabotage[key] ?? [], `sabotage.${key}`);
   if (!Array.isArray(m.doors)) fail('Map "doors" must be a list.');
   for (const d of m.doors as unknown[]) {
     if (!isRecord(d) || typeof d.room !== 'string' || !Array.isArray(d.tiles) || !d.tiles.every(isPos)) {
@@ -206,6 +231,12 @@ export function checkMapJson(raw: unknown): MapJson {
     if (typeof t.id !== 'string' || typeof t.task !== 'string') fail('Every task spot needs an "id" and a "task" type.');
     if (t.stage !== undefined && t.stage !== 1 && t.stage !== 2) fail(`Task spot "${t.id}": "stage" must be 1 or 2 when present.`);
   }
+  posList(m.objects, 'objects');
+  for (const o of m.objects as Record<string, unknown>[]) {
+    if (typeof o.id !== 'string' || typeof o.type !== 'string') fail('Every object needs an "id" and a "type".');
+    if (o.size !== undefined && !isPos(o.size)) fail(`Object "${o.id}": "size" must be [width, height] in tiles.`);
+  }
+  if (m.playable !== undefined && typeof m.playable !== 'boolean') fail('Map "playable" must be true or false.');
   return raw as unknown as MapJson;
 }
 
@@ -226,8 +257,8 @@ export function loadMap(raw: unknown): GameMap {
       if (ch === 'B') buttons.push([x, y]);
     }
   });
-  if (buttons.length !== 1) fail(`Map needs exactly one emergency button tile "B"; found ${buttons.length}.`);
-  const button = buttons[0] as TilePos;
+  if (buttons.length > 1) fail(`Map has ${buttons.length} emergency button tiles "B"; at most one is allowed.`);
+  const button = buttons[0] ?? null;
 
   const inBounds = (x: number, y: number) => x >= 0 && y >= 0 && x < width && y < height;
   const tileAt = (x: number, y: number): TileKind => (inBounds(x, y) ? (kinds[y * width + x] as TileKind) : 'void');
@@ -293,7 +324,8 @@ export function loadMap(raw: unknown): GameMap {
   const nav = buildNavGraph(width, height, isWalkable, (x, y) => regionIndex[y * width + x] as number);
 
   const toPos = (p: [number, number]): TilePos => [p[0], p[1]];
-  const panels = (list: Panel[]): Panel[] => list.map((p) => ({ room: p.room, pos: toPos(p.pos as [number, number]) }));
+  const panels = (list: Panel[] | undefined): Panel[] => (list ?? []).map((p) => ({ room: p.room, pos: toPos(p.pos as [number, number]) }));
+  const sabotage = json.sabotage ?? { lights: [], reactor: [], o2: [], comms: [] };
 
   return {
     name: json.name,
@@ -307,15 +339,17 @@ export function loadMap(raw: unknown): GameMap {
     rooms: regions.filter((r) => r.kind === 'room'),
     spawns,
     button,
-    vents: json.vents.map((v) => ({ id: v.id, room: v.room, pos: toPos(v.pos), network: v.network })),
+    vents: (json.vents ?? []).map((v) => ({ id: v.id, room: v.room, pos: toPos(v.pos), network: v.network })),
     sabotage: {
-      lights: panels(json.sabotage.lights),
-      reactor: panels(json.sabotage.reactor),
-      o2: panels(json.sabotage.o2),
-      comms: panels(json.sabotage.comms),
+      lights: panels(sabotage.lights),
+      reactor: panels(sabotage.reactor),
+      o2: panels(sabotage.o2),
+      comms: panels(sabotage.comms),
     },
-    doors: json.doors.map((d) => ({ room: d.room, tiles: d.tiles.map(toPos) })),
-    tasks: json.tasks.map((t) => ({ id: t.id, task: t.task, stage: t.stage, room: t.room, pos: toPos(t.pos) })),
+    doors: (json.doors ?? []).map((d) => ({ room: d.room, tiles: d.tiles.map(toPos) })),
+    tasks: (json.tasks ?? []).map((t) => ({ id: t.id, task: t.task, stage: t.stage, room: t.room, pos: toPos(t.pos) })),
+    objects: (json.objects ?? []).map((o) => ({ id: o.id, type: o.type, room: o.room, pos: toPos(o.pos), size: o.size ? [o.size[0], o.size[1]] : [1, 1] })),
+    playable: json.playable !== false,
     nav,
     tileAt,
     isWalkable,

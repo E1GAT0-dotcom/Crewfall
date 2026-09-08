@@ -1,6 +1,17 @@
 {
-  "_help": "Lists every playable map. 'file' is relative to the assets folder. Game code finds maps only through this file.",
+  "_help": "Lists every playable map. 'file' is relative to the assets folder. Game code finds maps only through this file. 'playable': false marks maps that are not for matches (the lobby).",
   "maps": [
-    { "id": "kestrel", "name": "Kestrel", "file": "maps/kestrel.json" }
+    {
+      "id": "lobby",
+      "name": "Lobby",
+      "file": "maps/lobby.json",
+      "playable": false
+    },
+    {
+      "id": "kestrel",
+      "name": "Kestrel",
+      "file": "maps/kestrel.json",
+      "playable": true
+    }
   ]
 }

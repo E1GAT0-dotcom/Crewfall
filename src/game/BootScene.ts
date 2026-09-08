@@ -1,11 +1,13 @@
-// Loads the manifests, then everything they point at, then starts the game.
+// Loads the manifests, then everything they point at, then opens the lobby.
 
 import Phaser from 'phaser';
 import { loadMap, type GameMap } from '../sim/map';
 import { assetUrl, MANIFEST_KEYS, mapKey, sheetKey, type MapsManifest, type SpritesManifest } from './assets';
 import { PlayScene, type PlaySceneData } from './PlayScene';
+import { loadStoredSettings } from '../ui/settingsStore';
 
-const DEFAULT_MAP_ID = 'kestrel';
+const LOBBY_MAP_ID = 'lobby';
+const DEFAULT_MATCH_MAP_ID = 'kestrel';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -18,17 +20,18 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    const maps = this.cache.json.get(MANIFEST_KEYS.maps) as MapsManifest;
+    const mapsManifest = this.cache.json.get(MANIFEST_KEYS.maps) as MapsManifest;
     const sprites = this.cache.json.get(MANIFEST_KEYS.sprites) as SpritesManifest;
 
-    const mapEntry = maps.maps.find((m) => m.id === DEFAULT_MAP_ID);
-    if (!mapEntry) {
-      this.showError(`maps/manifest.json has no map with id "${DEFAULT_MAP_ID}".`);
-      return;
+    for (const id of [LOBBY_MAP_ID, DEFAULT_MATCH_MAP_ID]) {
+      if (!mapsManifest.maps.some((m) => m.id === id)) {
+        this.showError(`maps/manifest.json has no map with id "${id}".`);
+        return;
+      }
     }
 
-    // Second loading pass: the actual map and sprite sheets named by the manifests.
-    this.load.json(mapKey(mapEntry.id), assetUrl(mapEntry.file));
+    // Second loading pass: every map and sprite sheet named by the manifests.
+    for (const entry of mapsManifest.maps) this.load.json(mapKey(entry.id), assetUrl(entry.file));
     for (const [name, sheet] of Object.entries(sprites.sheets)) {
       this.load.spritesheet(sheetKey(name), assetUrl(sheet.file), {
         frameWidth: sheet.frameWidth,
@@ -36,12 +39,14 @@ export class BootScene extends Phaser.Scene {
       });
     }
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
-      let map: GameMap;
-      try {
-        map = loadMap(this.cache.json.get(mapKey(mapEntry.id)));
-      } catch (err) {
-        this.showError(`Map "${mapEntry.name}" failed to load: ${(err as Error).message}`);
-        return;
+      const maps: Record<string, GameMap> = {};
+      for (const entry of mapsManifest.maps) {
+        try {
+          maps[entry.id] = loadMap(this.cache.json.get(mapKey(entry.id)));
+        } catch (err) {
+          this.showError(`Map "${entry.name}" failed to load: ${(err as Error).message}`);
+          return;
+        }
       }
       for (const [name, sheet] of Object.entries(sprites.sheets)) {
         this.anims.create({
@@ -51,7 +56,16 @@ export class BootScene extends Phaser.Scene {
           repeat: -1,
         });
       }
-      const data: PlaySceneData = { map, sprites };
+      const stored = loadStoredSettings();
+      const data: PlaySceneData = {
+        mode: 'lobby',
+        maps,
+        lobbyMapId: LOBBY_MAP_ID,
+        matchMapId: DEFAULT_MATCH_MAP_ID,
+        sprites,
+        settings: stored.settings,
+        seedText: stored.seedText,
+      };
       this.scene.start(PlayScene.KEY, data);
     });
     this.load.once(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {

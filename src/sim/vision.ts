@@ -49,7 +49,17 @@ export function lineOfSight(map: GameMap, x0: number, y0: number, x1: number, y1
 /** Walls and the outside block sight. Floor and low objects like the emergency button do not. */
 export function seeThrough(map: GameMap, tx: number, ty: number): boolean {
   const kind = map.tileAt(tx, ty);
-  return kind === 'floor' || kind === 'button';
+  return kind === 'floor' || kind === 'button' || kind === 'object';
+}
+
+/** How far a unit sees, in pixels: the base radius scaled by the crew or impostor vision setting. */
+export function visionRadiusPx(
+  role: 'crew' | 'impostor',
+  settings: { crewVision: number; impostorVision: number },
+  config: { tileSize: number; vision: { baseRadiusTiles: number } },
+): number {
+  const factor = role === 'impostor' ? settings.impostorVision : settings.crewVision;
+  return config.vision.baseRadiusTiles * config.tileSize * factor;
 }
 
 /** True if a point is within radius of the viewer and visible through walls. */
