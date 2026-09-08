@@ -7,7 +7,8 @@
     "camera.followLerp: 0..1, how quickly the camera catches up to the player each frame.",
     "tasks.durationSec: seconds a task takes, per type. tasks.botJitter: bots vary their time by this fraction.",
     "bots.wanderIdleSec: [min, max] seconds a bot loiters after wandering somewhere.",
-    "vision.baseRadiusTiles: how far a crew member sees at the 1.0x setting."
+    "vision.baseRadiusTiles: how far a crew member sees at the 1.0x setting.",
+    "bots.feel: what makes bots walk like people, not robots. All times in seconds, ranges are [min, max]."
   ],
   "tickRate": 30,
   "canvas": {
@@ -42,7 +43,35 @@
       2,
       5
     ],
-    "stuckTicks": 30
+    "stuckTicks": 30,
+    "feel": {
+      "speedRange": [
+        0.8,
+        1
+      ],
+      "speedWobble": 0.06,
+      "pauseEverySec": [
+        3,
+        10
+      ],
+      "pauseSec": [
+        0.3,
+        1.5
+      ],
+      "lookAroundChance": 0.5,
+      "afterTaskPauseSec": [
+        0.5,
+        2.5
+      ],
+      "startDelaySec": [
+        0.5,
+        4
+      ],
+      "detourChance": 0.15,
+      "driftPx": 8,
+      "turnSmoothing": 0.22,
+      "taskDistanceScaleTiles": 8
+    }
   },
   "vision": {
     "baseRadiusTiles": 5.5

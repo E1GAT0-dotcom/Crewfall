@@ -121,3 +121,12 @@ a seed field.
 `src/bots/brain.ts` holds one bot's state (goal, path, wait) and the Phase 2 decision layer:
 nearest task first with a little randomness, wander when done, re-path when stuck. Perception,
 memory, suspicion and voice slot in around this same state in Phase 3.
+
+## 2026-09-07 — Bots must not walk like robots (Greg's play-test of Phase 2 step 1)
+Greg found bots too smooth, never pausing, and piling into the same rooms. Fixes, all tunable in
+`config/game.json` under `bots.feel`: each bot has its own walking speed with a small wobble;
+corners are rounded and the walk drifts a few pixels off the tile centre line; bots pause for a
+moment every few seconds (half the time turning to look around); they hesitate after each task;
+they leave spawn at their own time; one time in seven they go and look at a room before working;
+and the next task is chosen with distance-weighted randomness rather than strictly nearest.
+Tests in `tests/sim.test.ts` ("bot feel") guard these.

@@ -55,7 +55,7 @@ export class PlayScene extends Phaser.Scene {
 
   create(): void {
     this.mapView = new MapView(this, this.map);
-    this.sim = createGame(this.map, this.settings, this.seed);
+    this.sim = createGame(this.map, this.settings, this.seed, gameConfig);
     this.prevPos = this.sim.units.map((u) => ({ x: u.x, y: u.y }));
 
     this.unitViews = this.sim.units.map((u) => {

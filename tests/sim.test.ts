@@ -12,7 +12,7 @@ const pxPerTick = (config.player.speedTilesPerSec * TS) / config.tickRate;
 
 /** A game where the player stands still and every bot is elsewhere, for movement tests. */
 function newGame(seed = 1, players = 10): SimState {
-  return createGame(map, { ...defaultSettings(), players }, seed);
+  return createGame(map, { ...defaultSettings(), players }, seed, config);
 }
 
 function run(state: SimState, input: PlayerInput, ticks: number): SimState {
@@ -38,10 +38,10 @@ describe('game setup', () => {
   });
 
   it('respects the players and impostors settings and caps', () => {
-    const small = createGame(map, { ...defaultSettings(), players: 5, impostors: 1 }, 3);
+    const small = createGame(map, { ...defaultSettings(), players: 5, impostors: 1 }, 3, config);
     expect(small.units.length).toBe(5);
     expect(small.units.filter((u) => u.role === 'impostor').length).toBe(1);
-    const tooMany = createGame(map, { ...defaultSettings(), players: 99, impostors: 9 }, 3);
+    const tooMany = createGame(map, { ...defaultSettings(), players: 99, impostors: 9 }, 3, config);
     expect(tooMany.units.length).toBe(map.playerCap);
     expect(tooMany.units.filter((u) => u.role === 'impostor').length).toBe(map.impostors.max);
   });
@@ -64,7 +64,7 @@ describe('game setup', () => {
 
   it('the player is sometimes an impostor, roughly at the expected rate', () => {
     let impostor = 0;
-    for (let seed = 0; seed < 200; seed++) if (createGame(map, defaultSettings(), seed).units[0]?.role === 'impostor') impostor++;
+    for (let seed = 0; seed < 200; seed++) if (createGame(map, defaultSettings(), seed, config).units[0]?.role === 'impostor') impostor++;
     expect(impostor).toBeGreaterThan(20); // expected about 40 of 200
     expect(impostor).toBeLessThan(70);
   });
@@ -101,7 +101,7 @@ describe('player movement', () => {
   });
 
   it('speed setting scales walking speed', () => {
-    const s = createGame(map, { ...defaultSettings(), playerSpeed: 2 }, 1);
+    const s = createGame(map, { ...defaultSettings(), playerSpeed: 2 }, 1, config);
     const before = { ...player(s) };
     stepSim(s, { dx: 1, dy: 0 }, map, config);
     expect(player(s).x).toBeCloseTo(before.x + pxPerTick * 2);
@@ -174,7 +174,7 @@ describe('bots', () => {
   });
 
   it('crew bots eventually finish every task; impostor tasks never count', () => {
-    const s = createGame(map, { ...defaultSettings(), players: 6, impostors: 1 }, 13);
+    const s = createGame(map, { ...defaultSettings(), players: 6, impostors: 1 }, 13, config);
     run(s, NO_INPUT, config.tickRate * 600); // 10 minutes
     for (const bot of s.bots) {
       const u = s.units[bot.unitId]!;
@@ -195,5 +195,43 @@ describe('bots', () => {
         expect(map.isWalkable(Math.floor(u.x / TS), Math.floor(u.y / TS)), `${u.name} at tick ${s.tick}`).toBe(true);
       }
     }
+  });
+});
+
+describe('bot feel (Greg, 2026-09-07: not robots)', () => {
+  it('bots leave spawn at different times and walk at different speeds', () => {
+    const s = newGame(31);
+    const firstMove = new Map<number, number>();
+    for (let i = 0; i < config.tickRate * 6; i++) {
+      stepSim(s, NO_INPUT, map, config);
+      for (const b of s.bots) if (!firstMove.has(b.unitId) && s.units[b.unitId]!.moving) firstMove.set(b.unitId, s.tick);
+    }
+    expect(new Set(firstMove.values()).size).toBeGreaterThan(3);
+    expect(new Set(s.bots.map((b) => b.quirks.speed)).size).toBe(s.bots.length);
+  });
+
+  it('bots pause now and then while walking, and hesitate after a task', () => {
+    const s = newGame(32);
+    const pausedTicks = new Map<number, number>();
+    for (let i = 0; i < config.tickRate * 120; i++) {
+      stepSim(s, NO_INPUT, map, config);
+      for (const b of s.bots) if (b.pauseTicks > 0 && b.goal.kind !== 'idle') pausedTicks.set(b.unitId, (pausedTicks.get(b.unitId) ?? 0) + 1);
+    }
+    for (const b of s.bots) expect(pausedTicks.get(b.unitId) ?? 0, `bot ${b.unitId}`).toBeGreaterThan(0);
+    expect(s.crewTasks.done).toBeGreaterThan(0);
+  });
+
+  it('bots do not all pick the same first room', () => {
+    let distinct = 0;
+    for (const seed of [41, 42, 43, 44, 45]) {
+      const s = newGame(seed);
+      const firstRoom = new Map<number, string>();
+      for (let i = 0; i < config.tickRate * 8; i++) {
+        stepSim(s, NO_INPUT, map, config);
+        for (const b of s.bots) if (!firstRoom.has(b.unitId) && b.goal.kind !== 'idle') firstRoom.set(b.unitId, b.goal.label.replace(/^.* (in|to|around) /, ''));
+      }
+      distinct += new Set(firstRoom.values()).size;
+    }
+    expect(distinct / 5).toBeGreaterThanOrEqual(3);
   });
 });

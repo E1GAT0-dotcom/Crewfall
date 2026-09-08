@@ -31,6 +31,19 @@ export interface SimConfig {
     /** [min, max] seconds. */
     readonly wanderIdleSec: readonly number[];
     readonly stuckTicks: number;
+    readonly feel: {
+      readonly speedRange: readonly number[];
+      readonly speedWobble: number;
+      readonly pauseEverySec: readonly number[];
+      readonly pauseSec: readonly number[];
+      readonly lookAroundChance: number;
+      readonly afterTaskPauseSec: readonly number[];
+      readonly startDelaySec: readonly number[];
+      readonly detourChance: number;
+      readonly driftPx: number;
+      readonly turnSmoothing: number;
+      readonly taskDistanceScaleTiles: number;
+    };
   };
 }
 
@@ -82,7 +95,7 @@ interface ColorEntry {
 export const COLORS: readonly ColorEntry[] = colorsJson.colors;
 
 /** Sets up a new game: names, colours, roles, spawn positions and task lists. */
-export function createGame(map: GameMap, settings: GameSettings, seed: number): SimState {
+export function createGame(map: GameMap, settings: GameSettings, seed: number, config: SimConfig): SimState {
   const rng = new Rng(seed);
   const count = Math.max(4, Math.min(settings.players, map.playerCap, map.spawns.length));
   const impostorCount = Math.max(1, Math.min(settings.impostors, map.impostors.max, Math.floor((count - 1) / 2)));
@@ -114,7 +127,7 @@ export function createGame(map: GameMap, settings: GameSettings, seed: number): 
       tasks: buildTaskList(map, rng, commonTypes, counts, id),
     });
   }
-  const bots = units.filter((u) => !u.isPlayer).map((u) => createBotState(u.id));
+  const bots = units.filter((u) => !u.isPlayer).map((u) => createBotState(u.id, rng, config));
   const state: SimState = {
     seed,
     settings,
