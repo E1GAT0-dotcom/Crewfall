@@ -1,0 +1,6 @@
+{
+  "_help": "Lists every playable map. 'file' is relative to the assets folder. Game code finds maps only through this file.",
+  "maps": [
+    { "id": "kestrel", "name": "Kestrel", "file": "maps/kestrel.json" }
+  ]
+}

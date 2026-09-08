@@ -1,0 +1,24 @@
+{
+  "name": "crewfall",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Crewfall (working title) - single-player social deduction game against scripted bots",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --open",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "~5.6",
+    "vite": "^6.4.3",
+    "vitest": "^3.2.7"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
+  }
+}

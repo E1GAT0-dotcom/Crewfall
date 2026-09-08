@@ -1,0 +1,56 @@
+# DECISIONS — dated log of choices and why
+
+## 2026-09-07 — Project stays in its current folder
+Greg chose to keep the project in `C:\Users\pszim\Downloads\Imposter game` rather than the
+`C:\Projects\crew-game` path SETUP.md suggested. Path contains a space; `play.bat` quotes paths
+to handle it. Revisit only if a tool has trouble with the space.
+
+## 2026-09-07 — "Two routes between any pair of rooms" excludes dead-end rooms
+SPEC.md §6.2 asks for two distinct routes between any pair of rooms *and* for 1–2 dead-end rooms.
+A dead end has one route by definition. Reading: every pair of non-dead-end rooms has two routes;
+the map test checks this. Dead-end rooms are marked as such in the map file.
+
+## 2026-09-07 — Vision circle deferred to Phase 2
+Phase 1 shows the ship fully lit. The vision circle arrives with the bots in Phase 2 because it
+defines what bots can see. Greg approved.
+
+## 2026-09-07 — Placeholder unit ships with idle + walk only in Phase 1
+SPEC.md §11.1 lists nine animations. Phase 1 needs idle and walk. The manifest and two-layer
+(base + detail) format are built now; the other seven sheets are added, in the same format, by the
+phase that first plays them.
+
+## 2026-09-07 — F3 overlay built in Phase 1
+The working rules say F3 is required from Phase 2, but the Phase 1 done test needs it. Built in Phase 1.
+
+## 2026-09-07 — Step-level approvals for Phase 1
+Greg asked for a check-in after each of the five Phase 1 steps.
+
+## 2026-09-07 — Map file format: a text picture plus lists
+SPEC.md §6.3 asks for JSON tile layers. Numeric tile arrays are unreadable for a non-programmer, so
+the map's `tiles` field is a text picture: one string per row, one character per tile
+(`#` wall, `.` floor, space = outside, `S` spawn, `B` button). Rooms are name + rectangle.
+Vents, panels, doors and task spots are coordinate lists. The walls are drawn explicitly in the
+picture; the collision layer is derived from it (anything that is not floor blocks walking).
+
+## 2026-09-07 — Corridors are auto-named
+Every floor tile outside every room rectangle is grouped into connected pieces, numbered
+"Corridor 1", "Corridor 2", … in top-to-bottom, left-to-right order of their first tile. Greg never
+has to name corridors; moving a wall re-numbers them automatically.
+
+## 2026-09-07 — The emergency button tile blocks walking
+The button is a table-like object in the middle of Cafeteria. Its tile is not walkable; players use
+it from an adjacent tile. Spawn tiles ring it.
+
+## 2026-09-07 — Door tiles are the corridor tiles just outside a room
+A door group lists the floor tiles that a closed door blocks: the tiles immediately outside the
+room at each opening. Cafeteria, Navigation and Admin have no doors (SPEC says "most rooms").
+
+## 2026-09-07 — Walking graph is one node per floor tile
+SPEC §6.3 allows generating the nav graph at load time. Phase 1 builds one node per walkable tile
+with 8-way edges (no cutting wall corners). Simple, exact, drawable in F3, and fine for pathfinding
+at this map size. Can be coarsened later if bot pathfinding needs it.
+
+## 2026-09-07 — Assets folder is served as the site root
+Vite's `publicDir` points at `assets/`, so `assets/maps/kestrel.json` is fetched as
+`/maps/kestrel.json`. Manifests list paths relative to `assets/`. Game code reads
+`assets/maps/manifest.json` to find maps rather than hardcoding a file name.

@@ -1,0 +1,831 @@
+{
+  "_help": [
+    "This file IS the map. Edit it and relaunch play.bat; no code changes needed.",
+    "tiles: one text row per tile row, one character per 32x32 tile. Column 0 is the left edge, row 0 is the top.",
+    "  '#' wall   '.' floor   ' ' outside the ship   'S' spawn tile (floor)   'B' emergency button (blocks walking)",
+    "rooms: name and rect [x, y, width, height] in tiles. Every floor tile outside every room becomes 'Corridor <n>'.",
+    "  deadEnd: true marks a room that is allowed to have only one way in (SPEC 6.2). All other rooms must have two.",
+    "Positions everywhere else are [x, y] tile coordinates.",
+    "vents: network groups vents that connect to each other. sabotage: panel positions per sabotage type.",
+    "doors: the floor tiles that a closed door blocks, listed per room.",
+    "tasks: one task spot each. stage is set only for two-stage tasks (upload_data, fuel_engines): 1 = first stop, 2 = second stop.",
+    "Run 'npm test' after editing: it checks the SPEC 6.2 rules and tells you what to fix."
+  ],
+  "name": "Kestrel",
+  "sizeClass": "medium",
+  "playerCap": 10,
+  "impostors": {
+    "default": 2,
+    "max": 2
+  },
+  "tileSize": 32,
+  "tiles": [
+    "                                                              ",
+    "                          ############                        ",
+    "                          #..........#                        ",
+    "                          #..........#                        ",
+    "                          #..........#                        ",
+    "                          #..........#                        ",
+    "                          #..........#                        ",
+    "                          #..........#                        ",
+    "                          ####...#####                        ",
+    "                             #...#                            ",
+    "                             #...#                            ",
+    "   #############             #...#              ############# ",
+    "   #...........###############...################...........# ",
+    "   #........................................................# ",
+    "   #........................................................# ",
+    "   #........................................................# ",
+    "   #...........##################################...........# ",
+    "   #...........#                                #...........# ",
+    "   #...........#                                #...........# ",
+    "   #...........#                                #...........# ",
+    "   #####...#####                                #####...##### ",
+    "       #...#                                        #...#     ",
+    "       #...#           ##################           #...#     ",
+    "       #...#           #................#           #...#     ",
+    "   #####...####        #................#        ####...##### ",
+    "   #..........#        #................#        #..........# ",
+    "   #..........##########.....S.S.S......##########..........# ",
+    "   #........................................................# ",
+    "   #.......................S.S.B.S.S........................# ",
+    "   #........................................................# ",
+    "   #..........##########.....S.S.S......##########..........# ",
+    "   #..........#        #................#        #..........# ",
+    "   #..........#        #................#        #..........# ",
+    "   ####...#####        #................#        ####...##### ",
+    "      #...#            #................#           #...#     ",
+    "      #...#            #######...########           #...#     ",
+    "      #...#                  #...#              #####...##### ",
+    "   ####...####               #...#              #...........# ",
+    "   #.........#               #...#              #...........# ",
+    "   #.........#################...#####          #...........# ",
+    "   #.................................#          #...........# ",
+    "   #.................................############...........# ",
+    "   #........................................................# ",
+    "   #.........##############.................................# ",
+    "   #.........#            #.................................# ",
+    "   ####...####            #..........############...........# ",
+    "      #...#               #..........############...........# ",
+    "      #...#               #############.............######### ",
+    "      #...#                           #.............#         ",
+    "   ####...######                      #.............#         ",
+    "   #...........#             ##########...################### ",
+    "   #...........#             #............#    #............# ",
+    "   #...........###############............######............# ",
+    "   #........................................................# ",
+    "   #........................................................# ",
+    "   #........................................................# ",
+    "   #...........###############............######............# ",
+    "   #...........#             #............#    #............# ",
+    "   #############             ##############    ############## ",
+    "                                                              "
+  ],
+  "rooms": [
+    {
+      "name": "Navigation",
+      "rect": [
+        27,
+        2,
+        10,
+        6
+      ],
+      "deadEnd": true
+    },
+    {
+      "name": "Weapons",
+      "rect": [
+        4,
+        12,
+        11,
+        8
+      ],
+      "deadEnd": false
+    },
+    {
+      "name": "Shields",
+      "rect": [
+        49,
+        12,
+        11,
+        8
+      ],
+      "deadEnd": false
+    },
+    {
+      "name": "Comms",
+      "rect": [
+        4,
+        25,
+        10,
+        8
+      ],
+      "deadEnd": false
+    },
+    {
+      "name": "Cafeteria",
+      "rect": [
+        24,
+        23,
+        16,
+        12
+      ],
+      "deadEnd": false
+    },
+    {
+      "name": "Medbay",
+      "rect": [
+        50,
+        25,
+        10,
+        8
+      ],
+      "deadEnd": false
+    },
+    {
+      "name": "O2",
+      "rect": [
+        4,
+        38,
+        9,
+        7
+      ],
+      "deadEnd": false
+    },
+    {
+      "name": "Admin",
+      "rect": [
+        27,
+        40,
+        10,
+        7
+      ],
+      "deadEnd": false
+    },
+    {
+      "name": "Storage",
+      "rect": [
+        49,
+        37,
+        11,
+        10
+      ],
+      "deadEnd": false
+    },
+    {
+      "name": "Electrical",
+      "rect": [
+        4,
+        50,
+        11,
+        8
+      ],
+      "deadEnd": false
+    },
+    {
+      "name": "Engine",
+      "rect": [
+        30,
+        51,
+        12,
+        7
+      ],
+      "deadEnd": false
+    },
+    {
+      "name": "Reactor",
+      "rect": [
+        48,
+        51,
+        12,
+        7
+      ],
+      "deadEnd": true
+    }
+  ],
+  "vents": [
+    {
+      "id": "vent_reactor",
+      "room": "Reactor",
+      "pos": [
+        58,
+        56
+      ],
+      "network": 1
+    },
+    {
+      "id": "vent_electrical",
+      "room": "Electrical",
+      "pos": [
+        5,
+        56
+      ],
+      "network": 1
+    },
+    {
+      "id": "vent_admin",
+      "room": "Admin",
+      "pos": [
+        35,
+        45
+      ],
+      "network": 1
+    },
+    {
+      "id": "vent_navigation",
+      "room": "Navigation",
+      "pos": [
+        35,
+        3
+      ],
+      "network": 2
+    },
+    {
+      "id": "vent_shields",
+      "room": "Shields",
+      "pos": [
+        58,
+        13
+      ],
+      "network": 2
+    },
+    {
+      "id": "vent_weapons",
+      "room": "Weapons",
+      "pos": [
+        5,
+        13
+      ],
+      "network": 3
+    },
+    {
+      "id": "vent_comms",
+      "room": "Comms",
+      "pos": [
+        5,
+        31
+      ],
+      "network": 3
+    },
+    {
+      "id": "vent_o2",
+      "room": "O2",
+      "pos": [
+        11,
+        43
+      ],
+      "network": 3
+    },
+    {
+      "id": "vent_medbay",
+      "room": "Medbay",
+      "pos": [
+        58,
+        31
+      ],
+      "network": 4
+    },
+    {
+      "id": "vent_storage",
+      "room": "Storage",
+      "pos": [
+        58,
+        45
+      ],
+      "network": 4
+    }
+  ],
+  "sabotage": {
+    "lights": [
+      {
+        "room": "Electrical",
+        "pos": [
+          13,
+          51
+        ]
+      }
+    ],
+    "reactor": [
+      {
+        "room": "Reactor",
+        "pos": [
+          49,
+          52
+        ]
+      },
+      {
+        "room": "Reactor",
+        "pos": [
+          49,
+          56
+        ]
+      }
+    ],
+    "o2": [
+      {
+        "room": "O2",
+        "pos": [
+          10,
+          38
+        ]
+      },
+      {
+        "room": "Admin",
+        "pos": [
+          28,
+          40
+        ]
+      }
+    ],
+    "comms": [
+      {
+        "room": "Comms",
+        "pos": [
+          12,
+          25
+        ]
+      }
+    ]
+  },
+  "doors": [
+    {
+      "room": "Weapons",
+      "tiles": [
+        [
+          15,
+          13
+        ],
+        [
+          15,
+          14
+        ],
+        [
+          15,
+          15
+        ],
+        [
+          8,
+          20
+        ],
+        [
+          9,
+          20
+        ],
+        [
+          10,
+          20
+        ]
+      ]
+    },
+    {
+      "room": "Shields",
+      "tiles": [
+        [
+          48,
+          13
+        ],
+        [
+          48,
+          14
+        ],
+        [
+          48,
+          15
+        ],
+        [
+          53,
+          20
+        ],
+        [
+          54,
+          20
+        ],
+        [
+          55,
+          20
+        ]
+      ]
+    },
+    {
+      "room": "Comms",
+      "tiles": [
+        [
+          8,
+          24
+        ],
+        [
+          9,
+          24
+        ],
+        [
+          10,
+          24
+        ],
+        [
+          14,
+          27
+        ],
+        [
+          14,
+          28
+        ],
+        [
+          14,
+          29
+        ],
+        [
+          7,
+          33
+        ],
+        [
+          8,
+          33
+        ],
+        [
+          9,
+          33
+        ]
+      ]
+    },
+    {
+      "room": "Medbay",
+      "tiles": [
+        [
+          53,
+          24
+        ],
+        [
+          54,
+          24
+        ],
+        [
+          55,
+          24
+        ],
+        [
+          49,
+          27
+        ],
+        [
+          49,
+          28
+        ],
+        [
+          49,
+          29
+        ],
+        [
+          53,
+          33
+        ],
+        [
+          54,
+          33
+        ],
+        [
+          55,
+          33
+        ]
+      ]
+    },
+    {
+      "room": "O2",
+      "tiles": [
+        [
+          7,
+          37
+        ],
+        [
+          8,
+          37
+        ],
+        [
+          9,
+          37
+        ],
+        [
+          13,
+          40
+        ],
+        [
+          13,
+          41
+        ],
+        [
+          13,
+          42
+        ],
+        [
+          7,
+          45
+        ],
+        [
+          8,
+          45
+        ],
+        [
+          9,
+          45
+        ]
+      ]
+    },
+    {
+      "room": "Storage",
+      "tiles": [
+        [
+          53,
+          36
+        ],
+        [
+          54,
+          36
+        ],
+        [
+          55,
+          36
+        ],
+        [
+          48,
+          42
+        ],
+        [
+          48,
+          43
+        ],
+        [
+          48,
+          44
+        ],
+        [
+          49,
+          47
+        ],
+        [
+          50,
+          47
+        ],
+        [
+          51,
+          47
+        ]
+      ]
+    },
+    {
+      "room": "Electrical",
+      "tiles": [
+        [
+          7,
+          49
+        ],
+        [
+          8,
+          49
+        ],
+        [
+          9,
+          49
+        ],
+        [
+          15,
+          53
+        ],
+        [
+          15,
+          54
+        ],
+        [
+          15,
+          55
+        ]
+      ]
+    },
+    {
+      "room": "Engine",
+      "tiles": [
+        [
+          39,
+          50
+        ],
+        [
+          40,
+          50
+        ],
+        [
+          41,
+          50
+        ],
+        [
+          29,
+          53
+        ],
+        [
+          42,
+          53
+        ],
+        [
+          29,
+          54
+        ],
+        [
+          42,
+          54
+        ],
+        [
+          29,
+          55
+        ],
+        [
+          42,
+          55
+        ]
+      ]
+    },
+    {
+      "room": "Reactor",
+      "tiles": [
+        [
+          47,
+          53
+        ],
+        [
+          47,
+          54
+        ],
+        [
+          47,
+          55
+        ]
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "nav_align_dish",
+      "task": "align_dish",
+      "room": "Navigation",
+      "pos": [
+        28,
+        3
+      ]
+    },
+    {
+      "id": "nav_upload",
+      "task": "upload_data",
+      "stage": 1,
+      "room": "Navigation",
+      "pos": [
+        33,
+        7
+      ]
+    },
+    {
+      "id": "weapons_asteroids",
+      "task": "clear_asteroids",
+      "room": "Weapons",
+      "pos": [
+        13,
+        12
+      ]
+    },
+    {
+      "id": "shields_upload",
+      "task": "upload_data",
+      "stage": 1,
+      "room": "Shields",
+      "pos": [
+        50,
+        19
+      ]
+    },
+    {
+      "id": "shields_wiring",
+      "task": "fix_wiring",
+      "room": "Shields",
+      "pos": [
+        58,
+        19
+      ]
+    },
+    {
+      "id": "comms_wiring",
+      "task": "fix_wiring",
+      "room": "Comms",
+      "pos": [
+        4,
+        25
+      ]
+    },
+    {
+      "id": "comms_align_dish",
+      "task": "align_dish",
+      "room": "Comms",
+      "pos": [
+        12,
+        32
+      ]
+    },
+    {
+      "id": "cafeteria_wiring",
+      "task": "fix_wiring",
+      "room": "Cafeteria",
+      "pos": [
+        24,
+        23
+      ]
+    },
+    {
+      "id": "medbay_upload",
+      "task": "upload_data",
+      "stage": 1,
+      "room": "Medbay",
+      "pos": [
+        50,
+        25
+      ]
+    },
+    {
+      "id": "o2_chute",
+      "task": "empty_chute",
+      "room": "O2",
+      "pos": [
+        4,
+        44
+      ]
+    },
+    {
+      "id": "admin_swipe",
+      "task": "swipe_card",
+      "room": "Admin",
+      "pos": [
+        36,
+        40
+      ]
+    },
+    {
+      "id": "admin_upload",
+      "task": "upload_data",
+      "stage": 2,
+      "room": "Admin",
+      "pos": [
+        27,
+        46
+      ]
+    },
+    {
+      "id": "storage_fuel",
+      "task": "fuel_engines",
+      "stage": 1,
+      "room": "Storage",
+      "pos": [
+        49,
+        37
+      ]
+    },
+    {
+      "id": "storage_chute",
+      "task": "empty_chute",
+      "room": "Storage",
+      "pos": [
+        59,
+        37
+      ]
+    },
+    {
+      "id": "electrical_calibrate",
+      "task": "calibrate_power",
+      "room": "Electrical",
+      "pos": [
+        4,
+        50
+      ]
+    },
+    {
+      "id": "electrical_wiring",
+      "task": "fix_wiring",
+      "room": "Electrical",
+      "pos": [
+        14,
+        57
+      ]
+    },
+    {
+      "id": "engine_fuel",
+      "task": "fuel_engines",
+      "stage": 2,
+      "room": "Engine",
+      "pos": [
+        30,
+        51
+      ]
+    },
+    {
+      "id": "reactor_wiring",
+      "task": "fix_wiring",
+      "room": "Reactor",
+      "pos": [
+        58,
+        51
+      ]
+    }
+  ]
+}
