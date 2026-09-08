@@ -9,8 +9,8 @@ Double-click `play.bat`. A browser tab opens with the game.
 | Key | Action |
 |---|---|
 | W A S D or arrow keys | Move |
-| Tab (hold) | Show the full map |
-| F3 | Debug overlay on/off |
+| Tab (hold) | Show the full map (step 4) |
+| F3 | Debug overlay on/off (step 4) |
 
 ## Editing the map
 Open `assets/maps/kestrel.json` in any text editor. The `tiles` section is a picture of the ship,

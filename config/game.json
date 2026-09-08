@@ -1,0 +1,20 @@
+{
+  "_help": [
+    "Tunable numbers for the whole game. Edit and relaunch play.bat.",
+    "tickRate: simulation steps per second (fixed; rendering is smoothed between steps).",
+    "player.speedTilesPerSec: base walking speed at the 1.0x setting.",
+    "player.colliderRadiusPx: how fat the unit is for wall collision, in pixels.",
+    "camera.followLerp: 0..1, how quickly the camera catches up to the player each frame."
+  ],
+  "tickRate": 30,
+  "canvas": { "width": 1280, "height": 720 },
+  "tileSize": 32,
+  "unitFrame": 64,
+  "player": {
+    "speedTilesPerSec": 4.5,
+    "colliderRadiusPx": 11
+  },
+  "camera": {
+    "followLerp": 0.15
+  }
+}
