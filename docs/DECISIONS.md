@@ -1,9 +1,8 @@
 # DECISIONS — dated log of choices and why
 
-## 2026-09-07 — Project stays in its current folder
-Greg chose to keep the project in `C:\Users\pszim\Downloads\Imposter game` rather than the
-`C:\Projects\crew-game` path SETUP.md suggested. Path contains a space; `play.bat` quotes paths
-to handle it. Revisit only if a tool has trouble with the space.
+## 2026-09-07 — Project folder path contains a space
+Greg chose to keep the project where it already was rather than move it to a space-free path.
+`play.bat` quotes paths to handle it, and no tool has had trouble. Revisit only if one does.
 
 ## 2026-09-07 — "Two routes between any pair of rooms" excludes dead-end rooms
 SPEC.md §6.2 asks for two distinct routes between any pair of rooms *and* for 1–2 dead-end rooms.

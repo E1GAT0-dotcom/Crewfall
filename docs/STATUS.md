@@ -1,6 +1,6 @@
 # STATUS — Crewfall (working title)
 
-**Current phase:** Phase 1 — Skeleton (in progress)
+**Current phase:** Phase 1 — Skeleton. Built and self-tested; awaiting Greg's play-test sign-off before Phase 2.
 
 ## How to launch
 Double-click `play.bat` in the project folder. A browser tab opens with the game.
@@ -19,8 +19,14 @@ Close the black command window to stop it.
   with room names and a dot for the player. F3 toggles a debug panel (fps, tick, position, tile,
   room, facing, graph size) and draws the walking graph over the floor. 36 tests pass.
 
-## Not yet built (Phase 1)
-- Nothing. Step 5 (docs and the Phase 1 report) is the last step.
+## Not yet built
+- Everything from Phase 2 on (SPEC.md §14): settings screen, bots, roles, kills, meetings, voting.
+
+## Known limitations (by design in Phase 1)
+- No vision circle or darkness yet; the whole ship is lit. Arrives in Phase 2.
+- The unit is a placeholder with idle and walk animations only.
+- F3 shows "seed (Phase 2)": seeded random numbers arrive with the bots.
+- Vents, sabotage panels, doors and task spots exist in the map file but are not drawn or usable yet.
 
 ## Known bugs
 None yet.
