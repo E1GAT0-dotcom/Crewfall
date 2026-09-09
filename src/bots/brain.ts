@@ -20,6 +20,7 @@ import type { Rng } from '../sim/rng';
 import { completeStage, moveUnit, unitSpeedPxPerTick, unitTile, type SimConfig, type SimState, type Unit } from '../sim/sim';
 import { nextStage, TASK_LABELS, type Task } from '../sim/tasks';
 import { canSee, visionRadiusPx } from '../sim/vision';
+import { createMemory, type BotMemory } from './memory';
 
 export type BotGoal =
   | { kind: 'idle' }
@@ -37,6 +38,8 @@ export interface BotQuirks {
 export interface BotState {
   readonly unitId: number;
   readonly quirks: BotQuirks;
+  /** What this bot has seen and heard (SPEC 9.3, 9.4). */
+  readonly memory: BotMemory;
   goal: BotGoal;
   /** Remaining waypoints (tile positions) to the goal, walked in order. */
   path: TilePos[];
@@ -72,6 +75,7 @@ export function createBotState(unitId: number, rng: Rng, config: SimConfig): Bot
   return {
     unitId,
     quirks: { speed: rng.range(s0, s1) },
+    memory: createMemory(),
     goal: { kind: 'idle' },
     path: [],
     pathIndex: 0,

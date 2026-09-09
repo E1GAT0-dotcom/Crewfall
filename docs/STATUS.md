@@ -1,6 +1,6 @@
 # STATUS — Crewfall (working title)
 
-**Current phase:** Phase 2 — Core loop. Built and self-tested (all five steps); awaiting Greg's play-test sign-off before Phase 3.
+**Current phase:** Phase 3 — Bot brains, step 1 of 5 done (eyes and memory). Phase 2 built and self-tested; awaiting Greg's play-test sign-off.
 
 ## How to launch
 Double-click `play.bat` in the project folder. A browser tab opens with the game.
@@ -48,8 +48,14 @@ Close the black command window to stop it.
   numbers, and the immediate end when the last impostor is ejected), a win/lose screen naming the
   impostors with Play again and Lobby, and a whole-game determinism test. 106 tests pass.
 
+- Phase 3 step 1: every bot keeps a memory of sightings (who, which rooms, when, with whom, at a task,
+  near a body, heading where), kills witnessed and bodies seen; recall accuracy and memory span
+  follow the difficulty; alibis said in meetings become public claims that each bot checks against
+  its own sightings, recording contradictions. F3: press 1–9 to inspect a bot's memory. 119 tests pass.
+
 ## Not yet built
-- Phase 3 onward (SPEC.md §14): real bot brains, sabotage, task minigames, more maps, final art and sound.
+- Phase 3 steps 2–5: suspicion and trust, personalities and decisions, voices and the chat parser,
+  the simulator and F3 "why I voted". Then Phase 4 onward: sabotage, minigames, maps, art and sound.
 
 ## Known limitations (by design so far)
 - The unit is a placeholder with idle, walk and dead frames; ghosts are the same sprite faded.

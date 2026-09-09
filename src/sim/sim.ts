@@ -9,6 +9,8 @@
 import namesJson from '../../config/names.json';
 import colorsJson from '../../config/colors.json';
 import { createBotState, stepBot, type BotState } from '../bots/brain';
+import type { Claim } from '../bots/claims';
+import { perceive } from '../bots/memory';
 import { findKillTarget, tryCallMeeting, tryKill, tryReport, updatePlayerTask, type Body, type SimEvent } from './actions';
 import { stepMeeting, type MeetingState, type Vote } from './meeting';
 import { checkWin, type Outcome } from './win';
@@ -144,6 +146,8 @@ export interface SimState {
   meetingsHeld: number;
   /** Set once the game is over. */
   outcome: Outcome | null;
+  /** Everything asserted in meetings, public to all bots (SPEC 9.4). */
+  claims: Claim[];
   /** The player's hold-to-do task progress, if any. */
   playerTask: PlayerTaskProgress | null;
   /** Crew task progress for the task bar. */
@@ -216,6 +220,7 @@ export function createGame(map: GameMap, settings: GameSettings, seed: number, c
     meeting: null,
     meetingsHeld: 0,
     outcome: null,
+    claims: [],
     playerTask: null,
     crewTasks: { done: 0, total: 0 },
     events: [],
@@ -259,6 +264,13 @@ export function stepSim(state: SimState, input: PlayerInput, map: GameMap, confi
     if (state.phase !== 'play') break;
     const unit = state.units[bot.unitId] as Unit;
     stepBot(bot, unit, state, map, config);
+  }
+  // Perception last: bots record what they can see now that everyone has moved and acted.
+  if (state.mode === 'game') {
+    for (const bot of state.bots) {
+      const unit = state.units[bot.unitId] as Unit;
+      if (unit.alive) perceive(bot.memory, unit, state, map, config);
+    }
   }
   if (state.phase === 'play') checkWin(state);
   return state;

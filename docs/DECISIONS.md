@@ -220,3 +220,22 @@ Final art, decorations and task animations remain Phase 5 and Phase 7 work.
 ## 2026-09-08 — Phase 3 approved
 Greg approved the Phase 3 plan with my recommendations: decide the "fishbowl" question on
 simulator data; F3 inspector on number keys; casual lowercase chat voice.
+
+## 2026-09-08 — Sightings are stretches, not per-tick notes
+A bot's memory holds one sighting per unbroken stretch of seeing one unit: the rooms it passed
+through with the tick of each change, everyone seen close to it, how long it was alone, how long it
+stood at a task spot (and which), whether it was near a body, and the room it seemed to head for
+when last seen in a corridor. Stretches shorter than half a second are dropped. Kills witnessed and
+bodies seen are separate lists. This keeps memory small and makes "I saw X in Y from 2:10 to 2:35"
+one lookup. Numbers live in `config/brains.json`.
+
+## 2026-09-08 — Misremembering is stable
+Below 100% memory accuracy a bot's recollection of a sighting may be wrong (a neighbouring room, or
+the time shifted by up to 10 s), but the roll is fixed per bot and sighting, so an easy bot tells
+the same wrong story every time rather than a different one each time it is asked.
+
+## 2026-09-08 — Claims are public, contradictions are private
+Every alibi said in a meeting is stored once in the game as a claim covering the 45 s before the
+meeting. Each living bot checks it against its own sightings; a clash of at least 2 s becomes a
+contradiction in that bot's memory, with a plain-language "why". The player's typed claims join in
+step 4 with the parser.

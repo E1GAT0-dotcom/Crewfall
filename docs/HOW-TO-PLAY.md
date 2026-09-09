@@ -25,7 +25,7 @@ time, or type one to replay the same game (F3 shows the current seed).
 | Enter | In a meeting: focus the chat box, then send |
 | Esc | Back to the lobby (in a match) |
 | Tab (hold) | Show the full map (in a match) |
-| F3 | Debug overlay on/off |
+| F3 | Debug overlay on/off. With it on, press 1–9 to inspect a bot (its memory), 0 to close |
 
 ## Seeing
 View distance is how far out the camera is zoomed. Crew see one screen of ship around them at 1.0x;

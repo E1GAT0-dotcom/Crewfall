@@ -1,0 +1,30 @@
+{
+  "_help": [
+    "Bot brain numbers (SPEC 9). Edit and relaunch play.bat.",
+    "difficulty: per level. memoryAccuracy is the chance a remembered room or time is exact (SPEC 9.12).",
+    "  memorySpanMeetings: how many meetings back a bot remembers; null means unlimited.",
+    "perception: what counts as 'with someone', 'at a task spot', 'near a body', in tiles.",
+    "claims.windowSec: how far back an alibi like 'i was in Medbay' is taken to cover.",
+    "claims.contradictionMinSec: how long my sighting must clash with a claim before I call it a contradiction.",
+    "recall.roomBlurNeighbours: a misremembered room becomes a neighbouring one. recall.timeBlurSec: a misremembered time shifts by up to this."
+  ],
+  "difficulty": {
+    "easy":   { "memoryAccuracy": 0.7, "memorySpanMeetings": 2 },
+    "normal": { "memoryAccuracy": 0.9, "memorySpanMeetings": 3 },
+    "hard":   { "memoryAccuracy": 1.0, "memorySpanMeetings": null }
+  },
+  "perception": {
+    "companionRangeTiles": 3,
+    "taskSpotRangeTiles": 1.3,
+    "bodyRangeTiles": 2.5,
+    "minSightingSec": 0.5,
+    "maxSightingsPerBot": 400
+  },
+  "claims": {
+    "windowSec": 45,
+    "contradictionMinSec": 2
+  },
+  "recall": {
+    "timeBlurSec": 10
+  }
+}

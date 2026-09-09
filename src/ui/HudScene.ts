@@ -4,6 +4,7 @@
 
 import Phaser from 'phaser';
 import { describeGoal } from '../bots/brain';
+import { clock, describeSighting, recentSightings } from '../bots/memory';
 import type { GameMap } from '../sim/map';
 import { COLORS, playerRegionName, unitRegionName, type SimState, type Unit } from '../sim/sim';
 import { nextStage, TASK_LABELS } from '../sim/tasks';
@@ -53,6 +54,9 @@ export class HudScene extends Phaser.Scene {
   private tabMapScale = 1;
   private tabMapOrigin = { x: 0, y: 0 };
   private keys!: { TAB: Phaser.Input.Keyboard.Key; F3: Phaser.Input.Keyboard.Key; ESC: Phaser.Input.Keyboard.Key };
+  private numberKeys: Phaser.Input.Keyboard.Key[] = [];
+  /** Bot index shown in the F3 inspector, or -1. */
+  private inspected = -1;
 
   constructor() {
     super(HudScene.KEY);
@@ -68,6 +72,7 @@ export class HudScene extends Phaser.Scene {
     const keyboard = this.input.keyboard;
     if (!keyboard) throw new Error('Keyboard input is not available.');
     this.keys = keyboard.addKeys('TAB,F3,ESC') as HudScene['keys'];
+    this.numberKeys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'ZERO'].map((k) => keyboard.addKey(k));
 
     this.roomLabel = this.add
       .text(16, 12, '', { fontFamily: STYLE.font, fontSize: '26px', fontStyle: 'bold', color: STYLE.text })
@@ -163,7 +168,12 @@ export class HudScene extends Phaser.Scene {
       this.debugText.setVisible(this.debugOn);
       this.play.setDebugVisible(this.debugOn);
     }
-    if (this.debugOn) this.debugText.setText(this.debugLines(region));
+    if (this.debugOn) {
+      this.numberKeys.forEach((key, i) => {
+        if (Phaser.Input.Keyboard.JustDown(key)) this.inspected = i === 9 ? -1 : this.inspected === i ? -1 : i;
+      });
+      this.debugText.setText(this.debugLines(region));
+    }
 
     const showMap = this.keys.TAB.isDown && this.play.simMode === 'game';
     if (showMap !== this.tabMap.visible) this.tabMap.setVisible(showMap);
@@ -238,12 +248,26 @@ export class HudScene extends Phaser.Scene {
       `crew tasks ${s.crewTasks.done}/${s.crewTasks.total}   bodies ${s.bodies.length}   meetings held ${s.meetingsHeld}   nav ${nav.nodes.length} nodes, ${edgeCount / 2} edges`,
       '',
     ];
-    for (const bot of s.bots) {
+    s.bots.forEach((bot, i) => {
       const u = s.units[bot.unitId];
-      if (!u) continue;
+      if (!u) return;
       const role = u.role === 'impostor' ? `IMP${u.killCooldownTicks > 0 ? ' ' + Math.ceil(u.killCooldownTicks / 30) + 's' : ' rdy'}` : 'crew';
       const life = u.alive ? '' : ' †';
-      lines.push(`${(u.name + life).padEnd(8)} ${role.padEnd(7)} ${unitRegionName(u, this.map).padEnd(11)} ${describeGoal(bot)}`);
+      const mark = this.inspected === i ? '>' : ' ';
+      lines.push(`${mark}${i + 1} ${(u.name + life).padEnd(8)} ${role.padEnd(7)} ${unitRegionName(u, this.map).padEnd(11)} ${describeGoal(bot)}`);
+    });
+    const bot = this.inspected >= 0 ? s.bots[this.inspected] : undefined;
+    if (bot) {
+      const u = s.units[bot.unitId];
+      const mem = bot.memory;
+      lines.push('', `--- ${u?.name} (press ${this.inspected + 1} again or 0 to close) ---`);
+      lines.push(`sightings ${mem.sightings.length + Object.keys(mem.open).length}, kills seen ${mem.kills.length}, bodies seen ${mem.bodies.length}, contradictions ${mem.contradictions.length}`);
+      for (const sight of recentSightings(mem, 5)) lines.push('  saw ' + describeSighting(sight, s, 30));
+      for (const k of mem.kills) lines.push(`  WITNESSED ${s.units[k.killerId]?.name} kill ${s.units[k.victimId]?.name} in ${k.room} at ${clock(k.tick, 30)}`);
+      for (const b of mem.bodies) lines.push(`  saw ${s.units[b.victimId]?.name}'s body in ${b.room} at ${clock(b.tick, 30)}`);
+      for (const c of mem.contradictions.slice(-3)) lines.push('  CONTRADICTION: ' + c.why);
+    } else if (s.mode === 'game') {
+      lines.push('', 'press 1-9 to inspect a bot');
     }
     return lines.join('\n');
   }

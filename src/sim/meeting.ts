@@ -2,9 +2,14 @@
 // Pure TypeScript. Bot chat and votes here are the Phase 2 placeholders (generic lines, random
 // votes); Phase 3 replaces the choices but keeps this flow and these data shapes.
 
+import { broadcastClaim, claimWindow } from '../bots/claims';
+import { closeAllSightings, pruneForMeeting } from '../bots/memory';
 import { pickLine, type Intent } from '../chat/templates';
 import type { GameMap } from './map';
 import { unitRegionName, type PlayerInput, type SimConfig, type SimState, type Unit } from './sim';
+
+/** The map of the meeting in progress, so chat helpers can check claims against it. */
+let currentMap: GameMap | null = null;
 
 export type MeetingReason = 'body' | 'button';
 export type MeetingStage = 'discussion' | 'voting' | 'result';
@@ -86,8 +91,11 @@ export function startMeeting(state: SimState, calledBy: Unit, reason: MeetingRea
   state.bodies = [];
   state.playerTask = null;
   for (const u of state.units) u.moving = false;
-  // Bots drop whatever they were doing; they think afresh after the meeting.
+  // Bots drop whatever they were doing; they think afresh after the meeting. Their memories close
+  // the current sightings and forget anything beyond the difficulty's span.
   for (const b of state.bots) {
+    closeAllSightings(b.memory, config);
+    pruneForMeeting(b.memory, state.tick, state.settings.difficulty);
     b.goal = { kind: 'idle' };
     b.path = [];
     b.pathIndex = 0;
@@ -104,6 +112,7 @@ export function startMeeting(state: SimState, calledBy: Unit, reason: MeetingRea
 export function stepMeeting(state: SimState, input: PlayerInput, map: GameMap, config: SimConfig): void {
   const m = state.meeting;
   if (!m) return;
+  currentMap = map;
   const player = state.units[0] as Unit;
 
   // Player chat: anyone alive may talk during discussion and voting.
@@ -264,12 +273,12 @@ function botChat(state: SimState, m: MeetingState, config: SimConfig): void {
   else if (rng.chance(0.45)) intent = 'alibi';
   else if (m.stage === 'voting' && rng.chance(0.5)) intent = 'skip';
   else intent = 'shrug';
-  maybeSay(state, m, speaker, intent, config);
+  maybeSay(state, m, speaker, intent, config, {}, currentMap ?? undefined);
   const [g0, g1] = pair(config.meeting.botChat.gapSec, 1.5, 3);
   m.nextBotChatTick = state.tick + Math.round(rng.range(g0, g1) * config.tickRate);
 }
 
-function maybeSay(state: SimState, m: MeetingState, speaker: Unit, intent: Intent, config: SimConfig, extra: { other?: string } = {}): void {
+function maybeSay(state: SimState, m: MeetingState, speaker: Unit, intent: Intent, config: SimConfig, extra: { other?: string } = {}, map?: GameMap): void {
   if (!speaker.alive) return;
   if ((m.botMessagesSent[speaker.id] ?? 0) >= config.meeting.botChat.maxMessagesPerBot && intent !== 'voted') return;
   const used = new Set(m.usedTemplates);
@@ -282,6 +291,11 @@ function maybeSay(state: SimState, m: MeetingState, speaker: Unit, intent: Inten
   m.chat.push({ tick: state.tick, unitId: speaker.id, text });
   m.botMessagesSent[speaker.id] = (m.botMessagesSent[speaker.id] ?? 0) + 1;
   state.events.push({ kind: 'chat', unitId: speaker.id });
+  // An alibi is a checkable claim: every other bot compares it with what it saw.
+  if (intent === 'alibi' && slots.room && map) {
+    const w = claimWindow(state, config);
+    broadcastClaim(state, { speakerId: speaker.id, kind: 'alibi', subjectId: speaker.id, room: slots.room, otherId: null, fromTick: w.fromTick, toTick: w.toTick }, map, config);
+  }
 }
 
 /** One or two living bots answer the player within 2-5 s (SPEC 9.10, generic for now). */
