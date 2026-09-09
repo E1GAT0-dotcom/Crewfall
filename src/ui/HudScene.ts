@@ -49,6 +49,7 @@ export class HudScene extends Phaser.Scene {
   private debugOn = false;
   private tabMap!: Phaser.GameObjects.Container;
   private tabMapPlayer!: Phaser.GameObjects.Arc;
+  private tabMapTasks!: Phaser.GameObjects.Graphics;
   private tabMapScale = 1;
   private tabMapOrigin = { x: 0, y: 0 };
   private keys!: { TAB: Phaser.Input.Keyboard.Key; F3: Phaser.Input.Keyboard.Key; ESC: Phaser.Input.Keyboard.Key };
@@ -166,7 +167,10 @@ export class HudScene extends Phaser.Scene {
 
     const showMap = this.keys.TAB.isDown && this.play.simMode === 'game';
     if (showMap !== this.tabMap.visible) this.tabMap.setVisible(showMap);
-    if (showMap) this.tabMapPlayer.setPosition(this.tabMapOrigin.x + player.x * this.tabMapScale, this.tabMapOrigin.y + player.y * this.tabMapScale);
+    if (showMap) {
+      this.tabMapPlayer.setPosition(this.tabMapOrigin.x + player.x * this.tabMapScale, this.tabMapOrigin.y + player.y * this.tabMapScale);
+      this.drawTabMapTasks(player);
+    }
   }
 
   private updateRoleAndTasks(state: SimState, player: Unit): void {
@@ -244,6 +248,22 @@ export class HudScene extends Phaser.Scene {
     return lines.join('\n');
   }
 
+  /** Yellow markers on the Tab map for the player's unfinished task stages. */
+  private drawTabMapTasks(player: Unit): void {
+    const g = this.tabMapTasks;
+    g.clear();
+    const cell = this.map.tileSize * this.tabMapScale;
+    for (const task of player.tasks) {
+      const stage = nextStage(task);
+      const spot = stage ? this.map.tasks.find((s) => s.id === stage.spotId) : null;
+      if (!spot) continue;
+      const x = this.tabMapOrigin.x + (spot.pos[0] + 0.5) * cell;
+      const y = this.tabMapOrigin.y + (spot.pos[1] + 0.5) * cell;
+      g.fillStyle(0xffc857, 1).fillCircle(x, y, Math.max(3, cell * 0.5));
+      g.lineStyle(1, 0x000000, 0.8).strokeCircle(x, y, Math.max(3, cell * 0.5));
+    }
+  }
+
   /** Draws the whole ship small enough to fit the screen, once, into a hidden container. */
   private buildTabMap(): void {
     const map = this.map;
@@ -297,7 +317,11 @@ export class HudScene extends Phaser.Scene {
 
     const playerColour = COLORS.find((c) => c.id === this.play.state.units[0]?.colorId)?.tint ?? '#2fd3e6';
     this.tabMapPlayer = this.add.circle(0, 0, Math.max(4, cell * 0.6), Phaser.Display.Color.HexStringToColor(playerColour).color).setStrokeStyle(2, 0xffffff, 0.9);
+    this.tabMapTasks = this.add.graphics();
+    const legend = this.add
+      .text(this.scale.width / 2, oy + drawnH + 10, 'yellow: your next task spots', { fontFamily: STYLE.font, fontSize: '13px', color: '#ffc857' })
+      .setOrigin(0.5, 0);
 
-    this.tabMap = this.add.container(0, 0, [backdrop, picture, ...labels, title, this.tabMapPlayer]).setDepth(30).setVisible(false);
+    this.tabMap = this.add.container(0, 0, [backdrop, picture, ...labels, title, this.tabMapTasks, this.tabMapPlayer, legend]).setDepth(30).setVisible(false);
   }
 }

@@ -4,11 +4,18 @@
 import Phaser from 'phaser';
 import type { GameMap } from '../sim/map';
 
+/**
+ * Tile pictures. Walls come in four looks so the ship reads like a top-down room seen slightly from
+ * the front (Greg, 2026-09-08): a wall with floor below it shows its tall front face; a wall with
+ * floor above it is a low ledge; a wall beside floor is a thin edge; the rest is solid hull.
+ */
 const TILE_INDEX = {
   roomFloor: 0,
   corridorFloor: 1,
-  wall: 2,
-  void: 3,
+  wallFace: 2,
+  wallLedge: 3,
+  wallSide: 4,
+  wallSolid: 5,
 } as const;
 
 const COLORS = {
@@ -16,8 +23,12 @@ const COLORS = {
   roomGrid: 0x424a5c,
   corridorFloor: 0x2f3542,
   corridorGrid: 0x363d4b,
-  wallFace: 0x232938,
+  wallFace: 0x2b3245,
+  wallFaceDark: 0x1f2534,
   wallTop: 0x6b7590,
+  wallSolid: 0x1a1e2a,
+  console: 0x1a1e2a,
+  consoleScreen: 0xffc857,
   void: 0x0b0d12,
   label: '#9aa4bd',
   button: 0xd2372f,
@@ -45,8 +56,8 @@ export class MapView {
       for (let x = 0; x < map.width; x++) {
         const kind = map.tileAt(x, y);
         if (kind === 'void') continue; // transparent: the stars show through
-        let index: number = TILE_INDEX.void;
-        if (kind === 'wall') index = TILE_INDEX.wall;
+        let index: number = TILE_INDEX.wallSolid;
+        if (kind === 'wall') index = MapView.wallVariant(map, x, y);
         else if (kind === 'floor' || kind === 'button' || kind === 'object') {
           index = map.regionAt(x, y)?.kind === 'room' || kind !== 'floor' ? TILE_INDEX.roomFloor : TILE_INDEX.corridorFloor;
         }
@@ -74,6 +85,14 @@ export class MapView {
     }
 
     const g = scene.add.graphics().setDepth(2);
+    // Task consoles: a small panel with a screen on every task spot, so rooms show where work is.
+    for (const spot of map.tasks) {
+      const x = spot.pos[0] * ts;
+      const y = spot.pos[1] * ts;
+      g.fillStyle(COLORS.console, 1).fillRoundedRect(x + 7, y + 6, ts - 14, ts - 12, 3);
+      g.fillStyle(COLORS.consoleScreen, 0.9).fillRect(x + 10, y + 9, ts - 20, 8);
+      g.fillStyle(0x596279, 1).fillRect(x + 10, y + 20, 4, 3).fillRect(x + 16, y + 20, 4, 3);
+    }
     // Emergency button: a red disc on its tile.
     if (map.button) {
       const [bx, by] = map.button;
@@ -107,6 +126,18 @@ export class MapView {
     }
   }
 
+  /** Which wall look a wall tile gets, from where the floor is around it. */
+  private static wallVariant(map: GameMap, x: number, y: number): number {
+    const open = (tx: number, ty: number) => {
+      const k = map.tileAt(tx, ty);
+      return k === 'floor' || k === 'button' || k === 'object';
+    };
+    if (open(x, y + 1)) return TILE_INDEX.wallFace;
+    if (open(x, y - 1)) return TILE_INDEX.wallLedge;
+    if (open(x - 1, y) || open(x + 1, y)) return TILE_INDEX.wallSide;
+    return TILE_INDEX.wallSolid;
+  }
+
   /** Draws the placeholder tile graphics once into a texture the tilemap can use. */
   private static ensureTileset(scene: Phaser.Scene, ts: number): void {
     if (scene.textures.exists('tiles')) return;
@@ -121,10 +152,29 @@ export class MapView {
     };
     tile(TILE_INDEX.roomFloor, COLORS.roomFloor, COLORS.roomGrid);
     tile(TILE_INDEX.corridorFloor, COLORS.corridorFloor, COLORS.corridorGrid);
-    tile(TILE_INDEX.wall, COLORS.wallFace, null);
-    g.fillStyle(COLORS.wallTop, 1).fillRect(TILE_INDEX.wall * ts, 0, ts, Math.round(ts * 0.3));
-    tile(TILE_INDEX.void, COLORS.void, null);
-    g.generateTexture('tiles', ts * 4, ts);
+    // Front face: light top edge, then a tall face that darkens toward the floor below it.
+    {
+      const x = TILE_INDEX.wallFace * ts;
+      g.fillStyle(COLORS.wallFace, 1).fillRect(x, 0, ts, ts);
+      g.fillStyle(COLORS.wallFaceDark, 1).fillRect(x, Math.round(ts * 0.65), ts, Math.round(ts * 0.35));
+      g.fillStyle(COLORS.wallTop, 1).fillRect(x, 0, ts, Math.round(ts * 0.22));
+      g.fillStyle(0x3a4358, 1).fillRect(x, Math.round(ts * 0.22), ts, 2);
+    }
+    // Ledge: the top surface of a low wall in front of the floor above it.
+    {
+      const x = TILE_INDEX.wallLedge * ts;
+      g.fillStyle(COLORS.wallSolid, 1).fillRect(x, 0, ts, ts);
+      g.fillStyle(COLORS.wallTop, 1).fillRect(x, 0, ts, Math.round(ts * 0.45));
+      g.fillStyle(0x4d566c, 1).fillRect(x, Math.round(ts * 0.45), ts, 3);
+    }
+    // Side: a thin light edge down the middle of the tile.
+    {
+      const x = TILE_INDEX.wallSide * ts;
+      g.fillStyle(COLORS.wallSolid, 1).fillRect(x, 0, ts, ts);
+      g.fillStyle(COLORS.wallTop, 1).fillRect(x + Math.round(ts * 0.3), 0, Math.round(ts * 0.4), ts);
+    }
+    tile(TILE_INDEX.wallSolid, COLORS.wallSolid, null);
+    g.generateTexture('tiles', ts * 6, ts);
     g.destroy();
   }
 }

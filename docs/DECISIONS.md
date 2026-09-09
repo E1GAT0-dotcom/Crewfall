@@ -208,3 +208,15 @@ Lobby.
 In headless bot games the player never does tasks, so the crew cannot win by tasks while the player
 is crew. That is correct behaviour (a real player does their tasks); the whole-game tests use the
 other endings. The Phase 3 simulator will run all-bot lobbies (SPEC 9.13).
+
+## 2026-09-08 — Early visuals at Greg's request (placeholders until Phase 5 and 7)
+- Walls read like a room seen slightly from the front: a wall with floor below it shows a tall
+  front face, a wall with floor above it is a low ledge, a wall beside floor is a thin edge.
+  Four tile looks chosen from the floor around each wall tile (`MapView.wallVariant`).
+- Every task spot has a small placeholder console on the floor.
+- Your unfinished task stages get a yellow ring on the floor and a yellow marker on the Tab map.
+Final art, decorations and task animations remain Phase 5 and Phase 7 work.
+
+## 2026-09-08 — Phase 3 approved
+Greg approved the Phase 3 plan with my recommendations: decide the "fishbowl" question on
+simulator data; F3 inspector on number keys; casual lowercase chat voice.

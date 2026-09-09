@@ -9,7 +9,7 @@ import type { GameMap, MapObject } from '../sim/map';
 import { randomSeed, seedFromText } from '../sim/rng';
 import { defaultSettings, clampSettings, type GameSettings } from '../sim/settings';
 import { COLORS, createGame, player as playerOf, stepSim, NO_INPUT, type PlayerInput, type SimMode, type SimState } from '../sim/sim';
-import { TASK_LABELS } from '../sim/tasks';
+import { nextStage, TASK_LABELS } from '../sim/tasks';
 import { cameraZoom, visionRadiusPx } from '../sim/vision';
 import type { SpritesManifest } from './assets';
 import { MapView } from './MapView';
@@ -43,6 +43,7 @@ const CAPTURED_KEYS = ['TAB', 'F3', 'SPACE', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'ENT
 const DEBUG_PATH_COLOUR = 0xffc857;
 const DEBUG_VISION_COLOUR = 0x59d98c;
 const PROGRESS_COLOUR = 0x3ccf6a;
+const TASK_MARK_COLOUR = 0xffc857;
 /** How close (in tiles) the player must be to use an object. */
 const USE_RANGE_TILES = 1.6;
 
@@ -362,6 +363,16 @@ export class PlayScene extends Phaser.Scene {
   private drawProgressRing(player: { x: number; y: number }): void {
     const g = this.progressRing;
     g.clear();
+    // Yellow rings mark where your next task stages are (SPEC 7.2 task list; markers added at Greg's request).
+    if (this.mode === 'game' && this.sim.phase === 'play') {
+      const ts = this.map.tileSize;
+      g.lineStyle(2, TASK_MARK_COLOUR, 0.85);
+      for (const task of playerOf(this.sim).tasks) {
+        const stage = nextStage(task);
+        const spot = stage ? this.map.tasks.find((s) => s.id === stage.spotId) : null;
+        if (spot) g.strokeCircle(spot.pos[0] * ts + ts / 2, spot.pos[1] * ts + ts / 2, ts * 0.55);
+      }
+    }
     const t = this.sim.playerTask;
     if (!t) return;
     const view = this.unitViews[0];
