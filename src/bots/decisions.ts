@@ -53,7 +53,7 @@ export function buildAlibi(bot: BotState, unit: Unit, state: SimState, window: {
   const m = state.meeting;
   const victim = m?.bodyOf !== null && m?.bodyOf !== undefined ? state.units[m.bodyOf] : null;
   const focusTick = Math.min(victim?.deathTick ?? window.toTick, window.toTick);
-  const truthfulRoom = roomNearTick(memory, focusTick) ?? m?.roomsAtStart[unit.id] ?? '?';
+  const truthfulRoom = mostTimeRoom(memory, window.fromTick, window.toTick) ?? roomNearTick(memory, focusTick) ?? m?.roomsAtStart[unit.id] ?? '?';
 
   if (unit.role === 'impostor') {
     const cached = bot.alibis[`${window.fromTick}-${window.toTick}`];
@@ -76,6 +76,22 @@ export function buildAlibi(bot: BotState, unit: Unit, state: SimState, window: {
     return alibi;
   }
   return { room: truthfulRoom, truthful: true, why: `I was in ${truthfulRoom} at ${clock(focusTick, config.tickRate)}` };
+}
+
+/** The room (never a corridor) the bot spent the most time in during a window, or null. */
+export function mostTimeRoom(memory: BotMemory, fromTick: number, toTick: number): string | null {
+  const time = new Map<string, number>();
+  const route = myRoute(memory, fromTick, toTick);
+  for (let i = 0; i < route.length; i++) {
+    const v = route[i]!;
+    if (v.room.startsWith('Corridor')) continue;
+    const end = i + 1 < route.length ? route[i + 1]!.tick : toTick;
+    time.set(v.room, (time.get(v.room) ?? 0) + Math.max(0, end - Math.max(v.tick, fromTick)));
+  }
+  let best: string | null = null;
+  let bestTime = 0;
+  for (const [room, t] of time) if (t > bestTime) { best = room; bestTime = t; }
+  return best;
 }
 
 /** The room the bot was in at a tick; if it was in a corridor, the room it had just left or was about to enter. */

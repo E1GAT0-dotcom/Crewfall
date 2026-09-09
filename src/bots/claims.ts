@@ -86,19 +86,21 @@ export function findContradiction(botId: number, memory: BotMemory, claim: Claim
 
   if (claim.kind === 'alibi' || claim.kind === 'sighting') {
     if (!claim.room) return null;
+    // "I was in X" is true if they were in X at any point in the window. It is a lie only if I watched
+    // them for long enough in the window and never saw them in X (corridors do not count either way).
+    let clash: Contradiction | null = null;
     for (const s of sightingsOf(memory, claim.subjectId, claim.fromTick, claim.toTick)) {
-      // Walk the subject's room visits during the overlap; any stretch in a different room long enough clashes.
       for (let i = 0; i < s.rooms.length; i++) {
         const visit = s.rooms[i]!;
-        // Walking through a corridor is consistent with "I was in <room>".
         if (visit.room.startsWith('Corridor')) continue;
         const visitEnd = i + 1 < s.rooms.length ? (s.rooms[i + 1]!.tick) : s.endTick;
         const from = Math.max(visit.tick, claim.fromTick);
         const to = Math.min(visitEnd, claim.toTick);
-        if (to - from < minTicks) continue;
+        if (to < from) continue;
         const remembered = recall(botId, s, visit.room, difficulty, map, config);
-        if (remembered.room === claim.room) continue;
-        return {
+        if (remembered.room === claim.room) return null; // seen there: the claim holds
+        if (to - from < minTicks || clash) continue;
+        clash = {
           claimId: claim.id,
           speakerId: claim.speakerId,
           sawRoom: remembered.room,
@@ -108,7 +110,7 @@ export function findContradiction(botId: number, memory: BotMemory, claim: Claim
         };
       }
     }
-    return null;
+    return clash;
   }
 
   if (claim.kind === 'with' && claim.otherId !== null) {

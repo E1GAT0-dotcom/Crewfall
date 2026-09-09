@@ -301,6 +301,14 @@ describe('claims and contradictions', () => {
     const corridorTime = { fromTick: now - 9 * RATE, toTick: now - 7 * RATE };
     const eitherA = addClaim(s, { speakerId: speaker.id, kind: 'alibi', subjectId: speaker.id, room: 'Cafeteria', otherId: null, ...corridorTime });
     expect(findContradiction(watcher.id, memory, eitherA, s, map, config)).toBeNull();
+    // A window spanning the move: naming either room is true; naming a third room is a lie.
+    const spanning = { fromTick: now - 16 * RATE, toTick: now };
+    for (const room of ['Cafeteria', 'Comms']) {
+      const c = addClaim(s, { speakerId: speaker.id, kind: 'alibi', subjectId: speaker.id, room, otherId: null, ...spanning });
+      expect(findContradiction(watcher.id, memory, c, s, map, config), room).toBeNull();
+    }
+    const third = addClaim(s, { speakerId: speaker.id, kind: 'alibi', subjectId: speaker.id, room: 'Reactor', otherId: null, ...spanning });
+    expect(findContradiction(watcher.id, memory, third, s, map, config)).not.toBeNull();
   });
 });
 
