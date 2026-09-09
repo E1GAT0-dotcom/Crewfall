@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import config from '../config/game.json';
-import { addClaim, broadcastClaim, corroborates, findContradiction, type Claim } from '../src/bots/claims';
+import { addClaim, alibiWindow, broadcastClaim, corroborates, findContradiction, type Claim } from '../src/bots/claims';
 import { BRAINS, closeAllSightings, createMemory, perceive, pruneForMeeting, recall, recentSightings, sightingsOf, type Sighting } from '../src/bots/memory';
 import { tryKill } from '../src/sim/actions';
 import { loadMap } from '../src/sim/map';
@@ -262,16 +262,45 @@ describe('claims and contradictions', () => {
     }
   });
 
-  it('a bot alibi said in a meeting becomes a claim other bots check', () => {
+  it('a bot alibi said in a meeting becomes a claim other bots check, covers the moment, and names a room', () => {
     const s = createGame(map, { ...defaultSettings(), players: 8, impostors: 2, discussionSec: 60 }, 21, config);
     tick(s, RATE * 20);
     startMeeting(s, s.units[0]!, 'button', null, map, config);
+    const w = alibiWindow(s, config);
+    expect(w.toTick).toBe(s.meeting!.startedTick);
+    expect(w.toTick - w.fromTick).toBe(8 * RATE);
     tick(s, RATE * 40);
     const alibis = s.claims.filter((c: Claim) => c.kind === 'alibi');
     expect(alibis.length).toBeGreaterThan(0);
     for (const c of alibis) {
-      expect(c.room).toBe(s.meeting?.roomsAtStart[c.speakerId]);
+      expect(c.room).not.toMatch(/^Corridor/);
+      expect({ fromTick: c.fromTick, toTick: c.toTick }).toEqual(w);
     }
+  });
+
+  it('walking through a corridor does not contradict a room alibi; changing rooms outside the window does not either', () => {
+    const { s, bots } = stillGame(22, { difficulty: 'hard' });
+    const watcher = bots[0]!;
+    const speaker = bots[1]!;
+    const memory = s.bots.find((b) => b.unitId === watcher.id)!.memory;
+    at(watcher, 30, 28); // Cafeteria
+    at(speaker, 36, 30); // Cafeteria
+    tick(s, RATE * 10);
+    at(speaker, 20, 28); // the corridor to Comms
+    tick(s, RATE * 4);
+    at(speaker, 8, 28); // Comms
+    tick(s, RATE * 6);
+    // Claim "Comms" about the last 8 s: true. Claim "Cafeteria" about the last 8 s: false.
+    const now = s.tick;
+    const recent = { fromTick: now - 8 * RATE, toTick: now };
+    const comms = addClaim(s, { speakerId: speaker.id, kind: 'alibi', subjectId: speaker.id, room: 'Comms', otherId: null, ...recent });
+    expect(findContradiction(watcher.id, memory, comms, s, map, config)).toBeNull();
+    const cafe = addClaim(s, { speakerId: speaker.id, kind: 'alibi', subjectId: speaker.id, room: 'Cafeteria', otherId: null, ...recent });
+    expect(findContradiction(watcher.id, memory, cafe, s, map, config)).not.toBeNull();
+    // A claim about the corridor stretch: Comms or Cafeteria are both fine, since corridors do not count.
+    const corridorTime = { fromTick: now - 9 * RATE, toTick: now - 7 * RATE };
+    const eitherA = addClaim(s, { speakerId: speaker.id, kind: 'alibi', subjectId: speaker.id, room: 'Cafeteria', otherId: null, ...corridorTime });
+    expect(findContradiction(watcher.id, memory, eitherA, s, map, config)).toBeNull();
   });
 });
 

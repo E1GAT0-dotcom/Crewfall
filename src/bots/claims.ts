@@ -48,10 +48,23 @@ export interface Contradiction {
   readonly why: string;
 }
 
-/** The window an alibi covers: the stretch before the meeting started. */
+/** The window a general claim covers: the stretch before the meeting started. */
 export function claimWindow(state: SimState, config: SimConfig): { fromTick: number; toTick: number } {
   const start = state.meeting?.startedTick ?? state.tick;
   return { fromTick: Math.max(0, start - Math.round(BRAINS.claims.windowSec * config.tickRate)), toTick: start };
+}
+
+/**
+ * The window an alibi covers: the moment of the death (or the meeting start, for a button) plus or
+ * minus a few seconds. "I was in Medbay" is about then, not about the whole last minute.
+ */
+export function alibiWindow(state: SimState, config: SimConfig): { fromTick: number; toTick: number } {
+  const m = state.meeting;
+  const start = m?.startedTick ?? state.tick;
+  const victim = m && m.bodyOf !== null ? state.units[m.bodyOf] : null;
+  const focus = Math.min(victim?.deathTick ?? start, start);
+  const slack = Math.round(BRAINS.claims.alibiSlackSec * config.tickRate);
+  return { fromTick: Math.max(0, focus - slack), toTick: Math.min(start, focus + slack) };
 }
 
 /** Records a claim so every bot can check it. Returns it. */
@@ -77,6 +90,8 @@ export function findContradiction(botId: number, memory: BotMemory, claim: Claim
       // Walk the subject's room visits during the overlap; any stretch in a different room long enough clashes.
       for (let i = 0; i < s.rooms.length; i++) {
         const visit = s.rooms[i]!;
+        // Walking through a corridor is consistent with "I was in <room>".
+        if (visit.room.startsWith('Corridor')) continue;
         const visitEnd = i + 1 < s.rooms.length ? (s.rooms[i + 1]!.tick) : s.endTick;
         const from = Math.max(visit.tick, claim.fromTick);
         const to = Math.min(visitEnd, claim.toTick);

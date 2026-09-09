@@ -283,3 +283,9 @@ linger alone with the player while its kill is on cooldown.
 ## 2026-09-09 — Fear walks toward company
 A crew bot alone within six tiles of its top suspect (at 40 or more) heads for the room where it
 last saw the most people, or the room farthest from the suspect, then cools down for 20 s.
+
+## 2026-09-09 — An alibi is about the moment, and always names a room
+Live testing showed honest bots being contradicted: "i was in Cafeteria" covered the whole last
+45 s, so anyone who had changed rooms got caught out. Now an alibi covers the death moment plus or
+minus 8 s (`claims.alibiSlackSec`), a bot in a corridor names the room it just left or was about to
+enter, and walking through a corridor never contradicts a room claim.

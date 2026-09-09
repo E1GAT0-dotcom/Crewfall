@@ -2,7 +2,7 @@
 // Pure TypeScript. Bot chat and votes here are the Phase 2 placeholders (generic lines, random
 // votes); Phase 3 replaces the choices but keeps this flow and these data shapes.
 
-import { broadcastClaim, claimWindow } from '../bots/claims';
+import { alibiWindow, broadcastClaim } from '../bots/claims';
 import { buildAlibi } from '../bots/decisions';
 import { closeAllSightings, pruneForMeeting } from '../bots/memory';
 import { personality } from '../bots/personality';
@@ -313,7 +313,7 @@ function maybeSay(state: SimState, m: MeetingState, speaker: Unit, intent: Inten
   // The room in an alibi comes from the bot's own memory; impostors swap out the kill room (SPEC 9.6).
   let alibiRoom: string | undefined = m.roomsAtStart[speaker.id] ?? undefined;
   const bot = state.bots.find((b) => b.unitId === speaker.id);
-  if (bot && intent === 'alibi') alibiRoom = buildAlibi(bot, speaker, state, claimWindow(state, config), config).room;
+  if (bot && intent === 'alibi') alibiRoom = buildAlibi(bot, speaker, state, alibiWindow(state, config), config).room;
   const slots = { name: speaker.name, room: alibiRoom, victim, caller, other: extra.other };
   const text = pickLine(intent, slots, used, state.rng);
   if (!text) return;
@@ -323,7 +323,7 @@ function maybeSay(state: SimState, m: MeetingState, speaker: Unit, intent: Inten
   state.events.push({ kind: 'chat', unitId: speaker.id });
   // An alibi is a checkable claim: every other bot compares it with what it saw.
   if (intent === 'alibi' && slots.room && map) {
-    const w = claimWindow(state, config);
+    const w = alibiWindow(state, config);
     broadcastClaim(state, { speakerId: speaker.id, kind: 'alibi', subjectId: speaker.id, room: slots.room, otherId: null, fromTick: w.fromTick, toTick: w.toTick }, map, config);
   }
 }

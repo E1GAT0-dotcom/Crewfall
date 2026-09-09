@@ -52,9 +52,8 @@ export function buildAlibi(bot: BotState, unit: Unit, state: SimState, window: {
   const memory = bot.memory;
   const m = state.meeting;
   const victim = m?.bodyOf !== null && m?.bodyOf !== undefined ? state.units[m.bodyOf] : null;
-  const focusTick = victim?.deathTick ?? window.toTick;
-  const here = myRoomAt(memory, Math.min(focusTick, window.toTick));
-  const truthfulRoom = here?.room ?? m?.roomsAtStart[unit.id] ?? '?';
+  const focusTick = Math.min(victim?.deathTick ?? window.toTick, window.toTick);
+  const truthfulRoom = roomNearTick(memory, focusTick) ?? m?.roomsAtStart[unit.id] ?? '?';
 
   if (unit.role === 'impostor') {
     const cached = bot.alibis[`${window.fromTick}-${window.toTick}`];
@@ -77,6 +76,19 @@ export function buildAlibi(bot: BotState, unit: Unit, state: SimState, window: {
     return alibi;
   }
   return { room: truthfulRoom, truthful: true, why: `I was in ${truthfulRoom} at ${clock(focusTick, config.tickRate)}` };
+}
+
+/** The room the bot was in at a tick; if it was in a corridor, the room it had just left or was about to enter. */
+export function roomNearTick(memory: BotMemory, tick: number): string | null {
+  const visits = memory.myRooms;
+  let index = -1;
+  for (let i = 0; i < visits.length; i++) if (visits[i]!.tick <= tick) index = i;
+  if (index < 0) return null;
+  const here = visits[index]!;
+  if (!here.room.startsWith('Corridor')) return here.room;
+  for (let i = index - 1; i >= 0; i--) if (!visits[i]!.room.startsWith('Corridor')) return visits[i]!.room;
+  for (let i = index + 1; i < visits.length; i++) if (!visits[i]!.room.startsWith('Corridor')) return visits[i]!.room;
+  return null;
 }
 
 function nearestRoomName(state: SimState, unit: Unit): string | undefined {

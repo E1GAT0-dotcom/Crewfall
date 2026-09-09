@@ -9,7 +9,8 @@
     "recall.roomBlurNeighbours: a misremembered room becomes a neighbouring one. recall.timeBlurSec: a misremembered time shifts by up to this.",
     "difficulty.impostorFaking: sloppy / good / perfect. killCaution: onlyAlone (nobody in sight at all), normal (nobody could see), tracksWitnesses (normal plus self-reports and framing).",
     "difficulty.crossCheckClaims: chance a bot checks a claim against its memory. playerTargeting: random / normal / prioritize (the player when the player has accused it).",
-    "crew.buddy: how long (seconds) a buddying stretch lasts and how close to stay. crew.fear: top suspect within this many tiles with nobody else near makes a bot walk to company."
+    "crew.buddy: how long (seconds) a buddying stretch lasts and how close to stay. crew.fear: top suspect within this many tiles with nobody else near makes a bot walk to company.",
+    "claims.alibiSlackSec: an alibi (\"i was in Medbay\") covers the moment of the death plus or minus this many seconds."
   ],
   "difficulty": {
     "easy": {
@@ -52,7 +53,8 @@
   },
   "claims": {
     "windowSec": 45,
-    "contradictionMinSec": 2
+    "contradictionMinSec": 2,
+    "alibiSlackSec": 8
   },
   "recall": {
     "timeBlurSec": 10
