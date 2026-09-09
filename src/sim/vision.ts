@@ -1,10 +1,48 @@
-// Line of sight through the tile grid. Pure TypeScript.
-// Used by bot perception, vision rendering and path checks. Walls block sight; floor does not.
+// Sight rules. Pure TypeScript.
+//
+// "Vision" (SPEC 4.5, as clarified by Greg 2026-09-08) is how far out the camera is zoomed: a crew
+// member at 1.0x sees one screen's worth of ship around them; an impostor at 1.5x sees more. With
+// the lights on, walls do not hide anything that is on screen. When the lights are sabotaged
+// (Phase 4) sight shrinks to a small lit shape that walls do block; lineOfSight below is for that.
+// Bots use exactly the same rules as the player.
 
 import type { GameMap } from './map';
 
+export interface VisionSettings {
+  readonly crewVision: number;
+  readonly impostorVision: number;
+}
+
+export interface VisionConfig {
+  readonly canvas: { readonly width: number; readonly height: number };
+  readonly vision: { readonly zoomAtOneX: number; readonly lobbyZoom: number };
+}
+
+/** Camera zoom for a role: a bigger view-distance setting means more zoomed out. */
+export function cameraZoom(role: 'crew' | 'impostor', settings: VisionSettings, config: VisionConfig): number {
+  const factor = role === 'impostor' ? settings.impostorVision : settings.crewVision;
+  return config.vision.zoomAtOneX / factor;
+}
+
 /**
- * True if a straight line from (x0, y0) to (x1, y1), in world pixels, crosses only walkable tiles.
+ * How far a unit can see, in pixels: half the screen diagonal at that unit's zoom, so a bot sees
+ * exactly what a player with the same role would have on screen.
+ */
+export function visionRadiusPx(role: 'crew' | 'impostor', settings: VisionSettings, config: VisionConfig): number {
+  const zoom = cameraZoom(role, settings, config);
+  return Math.hypot(config.canvas.width, config.canvas.height) / 2 / zoom;
+}
+
+/** True if a point is within radius of the viewer. With the lights out, walls must not be in the way. */
+export function canSee(map: GameMap, viewerX: number, viewerY: number, radius: number, x: number, y: number, lightsOut = false): boolean {
+  const dx = x - viewerX;
+  const dy = y - viewerY;
+  if (dx * dx + dy * dy > radius * radius) return false;
+  return lightsOut ? lineOfSight(map, viewerX, viewerY, x, y) : true;
+}
+
+/**
+ * True if a straight line from (x0, y0) to (x1, y1), in world pixels, crosses only see-through tiles.
  * Walks the grid one tile boundary at a time (a DDA), so it never skips a tile.
  */
 export function lineOfSight(map: GameMap, x0: number, y0: number, x1: number, y1: number): boolean {
@@ -50,22 +88,4 @@ export function lineOfSight(map: GameMap, x0: number, y0: number, x1: number, y1
 export function seeThrough(map: GameMap, tx: number, ty: number): boolean {
   const kind = map.tileAt(tx, ty);
   return kind === 'floor' || kind === 'button' || kind === 'object';
-}
-
-/** How far a unit sees, in pixels: the base radius scaled by the crew or impostor vision setting. */
-export function visionRadiusPx(
-  role: 'crew' | 'impostor',
-  settings: { crewVision: number; impostorVision: number },
-  config: { tileSize: number; vision: { baseRadiusTiles: number } },
-): number {
-  const factor = role === 'impostor' ? settings.impostorVision : settings.crewVision;
-  return config.vision.baseRadiusTiles * config.tileSize * factor;
-}
-
-/** True if a point is within radius of the viewer and visible through walls. */
-export function canSee(map: GameMap, viewerX: number, viewerY: number, radius: number, x: number, y: number): boolean {
-  const dx = x - viewerX;
-  const dy = y - viewerY;
-  if (dx * dx + dy * dy > radius * radius) return false;
-  return lineOfSight(map, viewerX, viewerY, x, y);
 }

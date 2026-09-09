@@ -4,6 +4,7 @@ import Phaser from 'phaser';
 import { loadMap, type GameMap } from '../sim/map';
 import { assetUrl, MANIFEST_KEYS, mapKey, sheetKey, type MapsManifest, type SpritesManifest } from './assets';
 import { PlayScene, type PlaySceneData } from './PlayScene';
+import { StarsScene } from './StarsScene';
 import { loadStoredSettings } from '../ui/settingsStore';
 
 const LOBBY_MAP_ID = 'lobby';
@@ -66,6 +67,7 @@ export class BootScene extends Phaser.Scene {
         settings: stored.settings,
         seedText: stored.seedText,
       };
+      this.scene.launch(StarsScene.KEY);
       this.scene.start(PlayScene.KEY, data);
     });
     this.load.once(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {

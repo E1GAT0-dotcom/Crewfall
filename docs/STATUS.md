@@ -26,8 +26,9 @@ Close the black command window to stop it.
 - Phase 2 step 2: the game opens in a lobby. Walk to the SETTINGS computer and press E for the
   settings panel (players, impostors, difficulty, name, colour, kill cooldown and distance, meetings
   and timers, vision, speed, task counts, seed); settings are remembered between launches. Stand on
-  the START pad and press E to begin a match. In a match you only see a circle around you cut by
-  walls; bots and the darkness follow the same sight rules. F3 draws every unit's vision circle.
+  the START pad and press E to begin a match. View distance is camera zoom (impostors see more of
+  the ship); bots see as far as a player of their role would. The lobby is a pod at a fixed zoom.
+  A starfield streams past behind the lobby and the ship. F3 draws every unit's sight radius.
   67 tests pass.
 
 ## Not yet built

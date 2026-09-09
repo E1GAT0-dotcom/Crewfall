@@ -8,7 +8,7 @@ import type { GameMap, MapObject } from '../sim/map';
 import { randomSeed, seedFromText } from '../sim/rng';
 import { defaultSettings, clampSettings, type GameSettings } from '../sim/settings';
 import { COLORS, createGame, player as playerOf, stepSim, NO_INPUT, type PlayerInput, type SimMode, type SimState } from '../sim/sim';
-import { canSee, visionRadiusPx } from '../sim/vision';
+import { cameraZoom, visionRadiusPx } from '../sim/vision';
 import type { SpritesManifest } from './assets';
 import { MapView } from './MapView';
 import { NavGraphView } from './NavGraphView';
@@ -112,9 +112,12 @@ export class PlayScene extends Phaser.Scene {
 
     const playerView = this.unitViews[0] as UnitView;
     const cam = this.cameras.main;
-    // A map smaller than the screen (the lobby) is centred rather than pinned to the top-left.
-    const viewW = this.scale.width;
-    const viewH = this.scale.height;
+    // View distance is camera zoom (Greg, 2026-09-08). The lobby uses a fixed zoom that shows the whole pod.
+    const zoom = this.mode === 'lobby' ? gameConfig.vision.lobbyZoom : cameraZoom(playerOf(this.sim).role, this.settings, gameConfig);
+    cam.setZoom(zoom);
+    // A map smaller than the view (the lobby) is centred rather than pinned to the top-left.
+    const viewW = this.scale.width / zoom;
+    const viewH = this.scale.height / zoom;
     const bx = Math.min(0, (this.mapView.widthPx - viewW) / 2);
     const by = Math.min(0, (this.mapView.heightPx - viewH) / 2);
     cam.setBounds(bx, by, Math.max(this.mapView.widthPx, viewW), Math.max(this.mapView.heightPx, viewH));
@@ -124,8 +127,9 @@ export class PlayScene extends Phaser.Scene {
 
     this.navView = new NavGraphView(this, this.map);
     this.debugGraphics = this.add.graphics().setDepth(6).setVisible(false);
+    // Darkness is only for the lights sabotage (Phase 4); with the lights on the whole screen is visible.
     this.visionView = new VisionView(this, this.map);
-    this.visionView.setVisible(this.mode === 'game');
+    this.visionView.setVisible(false);
 
     if (this.mode === 'lobby') {
       const matchMap = this.data_.maps[this.data_.matchMapId] ?? this.map;
@@ -163,23 +167,12 @@ export class PlayScene extends Phaser.Scene {
 
     // Rendering interpolates between the last two ticks for smooth motion.
     const alpha = this.accumulatorMs / this.tickMs;
-    const player = playerOf(this.sim);
-    const radius = visionRadiusPx(player.role, this.settings, gameConfig);
     for (let i = 0; i < this.sim.units.length; i++) {
       const u = this.sim.units[i];
       const p = this.prevPos[i];
       const view = this.unitViews[i];
       if (!u || !p || !view) continue;
-      const x = Phaser.Math.Linear(p.x, u.x, alpha);
-      const y = Phaser.Math.Linear(p.y, u.y, alpha);
-      view.apply(x, y, u);
-      const visible = this.mode === 'lobby' || this.debugOn || u.isPlayer || canSee(this.map, player.x, player.y, radius, u.x, u.y);
-      view.container.setVisible(visible);
-    }
-    if (this.mode === 'game') {
-      const px = Phaser.Math.Linear(this.prevPos[0]?.x ?? player.x, player.x, alpha);
-      const py = Phaser.Math.Linear(this.prevPos[0]?.y ?? player.y, player.y, alpha);
-      this.visionView.update(px, py, radius, this.debugOn);
+      view.apply(Phaser.Math.Linear(p.x, u.x, alpha), Phaser.Math.Linear(p.y, u.y, alpha), u);
     }
     if (this.debugOn) this.drawDebug();
   }

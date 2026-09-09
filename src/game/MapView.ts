@@ -44,6 +44,7 @@ export class MapView {
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
         const kind = map.tileAt(x, y);
+        if (kind === 'void') continue; // transparent: the stars show through
         let index: number = TILE_INDEX.void;
         if (kind === 'wall') index = TILE_INDEX.wall;
         else if (kind === 'floor' || kind === 'button' || kind === 'object') {

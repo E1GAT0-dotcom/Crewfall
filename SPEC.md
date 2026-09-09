@@ -56,9 +56,11 @@ The bots are the product. Everything else exists so the bots have somewhere to b
 - Bodies are removed after a meeting.
 
 ### 4.5 Vision
-- Crew vision radius 1.0×, impostor 1.5× (settings). Vision is blocked by walls.
-- Lights sabotage reduces crew vision to 0.25×. Impostors unaffected.
-- Bots use the same vision rules as the player. What a bot cannot see, it does not know.
+Clarified 2026-09-08 (Greg): "vision" is how far out the camera is zoomed, not a lit circle.
+- Crew view distance 1.0×, impostor 1.5× (settings): the camera zooms out by that factor, so an impostor sees more of the ship. With the lights on, walls do not hide anything on screen.
+- Lights sabotage replaces this with a small lit shape around the crew (0.25×) that walls do block. Impostors unaffected.
+- The lobby uses a fixed zoom that shows the whole pod; view distance does not apply there.
+- Bots use the same vision rules as the player: they see as far as a player with their role would see on screen. What a bot cannot see, it does not know.
 
 ### 4.6 Kill rules
 - Kill range: short (~one character width), medium, long (setting; default short).

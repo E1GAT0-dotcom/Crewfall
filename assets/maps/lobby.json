@@ -1,6 +1,6 @@
 {
   "_help": [
-    "The lobby: where the game starts. Walk to the computer and press E to change settings; stand on the start pad and press E to begin.",
+    "The lobby: a small pod where the game starts. Walk to the computer and press E to change settings; stand on the start pad and press E to begin.",
     "Same picture format as kestrel.json. 'O' is a solid object you can see over but not walk through.",
     "objects: things you can use. type 'computer' opens settings, type 'start' starts the game."
   ],
@@ -14,33 +14,33 @@
   "playable": false,
   "tileSize": 32,
   "tiles": [
-    "                            ",
-    " ########################## ",
-    " #...OO...................# ",
-    " #........................# ",
-    " #........................# ",
-    " #.........S.S.S..........# ",
-    " #........................# ",
-    " #........S.S.S.S.........# ",
-    " #.......S.......S........# ",
-    " #........S.S.S.S.........# ",
-    " #........................# ",
-    " #.........S...S..........# ",
-    " #........................# ",
-    " #........................# ",
-    " #........................# ",
-    " #........................# ",
-    " ########################## ",
-    "                            "
+    "                                ",
+    "          ############          ",
+    "       ####..........####       ",
+    "     ###................###     ",
+    "   ###...OO...............###   ",
+    "  ##.........S...S..........##  ",
+    "  #..........................#  ",
+    "  #.........S.S.S.S..........#  ",
+    "  #........S.......S.........#  ",
+    "  #.........S.S.S.S..........#  ",
+    "  #..........................#  ",
+    "  #..........S...S...........#  ",
+    "  ##...........S............##  ",
+    "   ###....................###   ",
+    "     ###................###     ",
+    "       ####..........####       ",
+    "          ############          ",
+    "                                "
   ],
   "rooms": [
     {
       "name": "Lobby",
       "rect": [
-        2,
-        2,
-        24,
-        14
+        1,
+        1,
+        30,
+        16
       ],
       "deadEnd": false
     }
@@ -51,8 +51,8 @@
       "type": "computer",
       "room": "Lobby",
       "pos": [
-        5,
-        2
+        9,
+        4
       ],
       "size": [
         2,
@@ -64,7 +64,7 @@
       "type": "start",
       "room": "Lobby",
       "pos": [
-        22,
+        24,
         8
       ],
       "size": [

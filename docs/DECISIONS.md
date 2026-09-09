@@ -148,3 +148,16 @@ A dark sheet covers the screen; a hole in the shape of what the player can see (
 player, each stopped by the first wall or the vision radius) is cut with a geometry mask. Units
 outside that shape are not drawn at all, so nothing leaks through the dark. F3 lightens the sheet
 and draws every unit's vision circle so what bots can see is visible.
+
+## 2026-09-08 — Vision is camera zoom, not a flashlight (Greg)
+Greg clarified SPEC §4.5: the view-distance settings control how far out the camera is zoomed
+(impostors at 1.5× see more of the ship). With the lights on the whole screen is visible; walls do
+not hide anything. The lit-shape darkness built on 2026-09-07 is kept in `src/game/VisionView.ts`
+for the lights sabotage in Phase 4, where walls do block sight. Bots see as far as a player of
+their role would see on screen: half the screen diagonal at that zoom.
+
+## 2026-09-08 — Lobby is a pod at fixed zoom, with stars (Greg)
+The lobby is an oval spaceship pod that fits the screen at a fixed zoom; view distance does not
+apply there. A starfield streams past behind the lobby and behind the ship in a match
+(`src/game/StarsScene.ts`, three layers at different speeds, tunable in config under `stars`).
+The outside of the ship is transparent so the stars show through.

@@ -4,7 +4,7 @@ import config from '../config/game.json';
 import { loadMap } from '../src/sim/map';
 import { defaultSettings } from '../src/sim/settings';
 import { createGame, NO_INPUT, stepSim, unitRegionName } from '../src/sim/sim';
-import { visionRadiusPx } from '../src/sim/vision';
+import { cameraZoom, visionRadiusPx } from '../src/sim/vision';
 import { parseStoredSettings, serializeSettings } from '../src/ui/settingsStore';
 
 const read = (f: string) => JSON.parse(readFileSync(new URL(`../assets/maps/${f}`, import.meta.url), 'utf8'));
@@ -44,14 +44,16 @@ describe('lobby map', () => {
   });
 });
 
-describe('vision radius', () => {
-  it('scales with role and settings', () => {
-    const base = config.vision.baseRadiusTiles * config.tileSize;
+describe('view distance', () => {
+  it('is camera zoom: a bigger setting zooms out, and bots see what would be on that screen', () => {
     const s = defaultSettings();
-    expect(visionRadiusPx('crew', s, config)).toBeCloseTo(base);
-    expect(visionRadiusPx('impostor', s, config)).toBeCloseTo(base * 1.5);
-    expect(visionRadiusPx('crew', { ...s, crewVision: 2 }, config)).toBeCloseTo(base * 2);
-    expect(visionRadiusPx('impostor', { ...s, impostorVision: 0.5 }, config)).toBeCloseTo(base * 0.5);
+    expect(cameraZoom('crew', s, config)).toBeCloseTo(1);
+    expect(cameraZoom('impostor', s, config)).toBeCloseTo(1 / 1.5);
+    expect(cameraZoom('crew', { ...s, crewVision: 2 }, config)).toBeCloseTo(0.5);
+    const halfDiagonal = Math.hypot(config.canvas.width, config.canvas.height) / 2;
+    expect(visionRadiusPx('crew', s, config)).toBeCloseTo(halfDiagonal);
+    expect(visionRadiusPx('impostor', s, config)).toBeCloseTo(halfDiagonal * 1.5);
+    expect(visionRadiusPx('crew', { ...s, crewVision: 0.5 }, config)).toBeCloseTo(halfDiagonal * 0.5);
   });
 });
 

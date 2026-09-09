@@ -21,6 +21,8 @@ export type SimMode = 'lobby' | 'game';
 export interface SimConfig {
   readonly tickRate: number;
   readonly tileSize: number;
+  readonly canvas: { readonly width: number; readonly height: number };
+  readonly vision: { readonly zoomAtOneX: number; readonly lobbyZoom: number };
   readonly player: {
     readonly speedTilesPerSec: number;
     readonly colliderRadiusPx: number;

@@ -112,12 +112,16 @@ describe('line of sight', () => {
     expect(lineOfSight(map, cx, cy, dx, dy)).toBe(false);
   });
 
-  it('canSee respects the radius', () => {
+  it('canSee respects the radius, and walls only when the lights are out', () => {
     const [ax, ay] = centre(15, 14);
     const [bx, by] = centre(48, 14);
     expect(canSee(map, ax, ay, 5 * TS, bx, by)).toBe(false);
     expect(canSee(map, ax, ay, 40 * TS, bx, by)).toBe(true);
     expect(canSee(map, ax, ay, 2 * TS, ax + TS, ay)).toBe(true);
+    const [cx, cy] = centre(5, 15); // Weapons
+    const [dx, dy] = centre(5, 28); // Comms, solid wall between
+    expect(canSee(map, cx, cy, 40 * TS, dx, dy)).toBe(true); // lights on: walls do not hide what is on screen
+    expect(canSee(map, cx, cy, 40 * TS, dx, dy, true)).toBe(false); // lights out: walls block
   });
 });
 

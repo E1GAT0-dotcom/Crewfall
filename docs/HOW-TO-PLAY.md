@@ -24,8 +24,10 @@ time, or type one to replay the same game (F3 shows the current seed).
 | F3 | Debug overlay on/off |
 
 ## Seeing
-In a match you see only a circle around you, cut off by walls. Crew and impostors see different
-distances (settings). Bots follow exactly the same rule: what they cannot see, they do not know.
+View distance is how far out the camera is zoomed. Crew see one screen of ship around them at 1.0x;
+impostors see more at 1.5x (both are settings). Bots see exactly as far as a player of their role
+would: what they cannot see, they do not know. When the lights are sabotaged (Phase 4) crew see only
+a small lit area that walls block.
 
 ## What you see
 The name of the room you are in shows at the top-left. Hallways are called "Corridor 1", "Corridor 2"

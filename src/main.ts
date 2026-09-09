@@ -4,6 +4,7 @@ import Phaser from 'phaser';
 import gameConfig from '../config/game.json';
 import { BootScene } from './game/BootScene';
 import { PlayScene } from './game/PlayScene';
+import { StarsScene } from './game/StarsScene';
 import { HudScene } from './ui/HudScene';
 
 const game = new Phaser.Game({
@@ -17,7 +18,7 @@ const game = new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, PlayScene, HudScene],
+  scene: [BootScene, StarsScene, PlayScene, HudScene],
 });
 
 // Debug handle for the browser console and automated checks (e.g. crewfall.game.step(...) to
