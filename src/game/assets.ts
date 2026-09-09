@@ -43,6 +43,6 @@ export function sheetKey(logicalName: string): string {
 }
 
 /** Unit animations are named "unit.<layer>.<anim>". */
-export function unitSheet(layer: 'base' | 'detail', anim: 'idle' | 'walk'): string {
+export function unitSheet(layer: 'base' | 'detail', anim: 'idle' | 'walk' | 'dead'): string {
   return `unit.${layer}.${anim}`;
 }

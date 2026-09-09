@@ -15,8 +15,9 @@ function newGame(seed = 1, players = 10): SimState {
   return createGame(map, { ...defaultSettings(), players }, seed, config);
 }
 
+/** Steps the game; if a meeting starts (a bot reported a body), presses Enter to leave the step-3 placeholder. */
 function run(state: SimState, input: PlayerInput, ticks: number): SimState {
-  for (let i = 0; i < ticks; i++) stepSim(state, input, map, config);
+  for (let i = 0; i < ticks; i++) stepSim(state, state.phase === 'meeting' ? { ...input, continuePressed: true } : input, map, config);
   return state;
 }
 
@@ -233,5 +234,87 @@ describe('bot feel (Greg, 2026-09-07: not robots)', () => {
       distinct += new Set(firstRoom.values()).size;
     }
     expect(distinct / 5).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('bots kill and report (Phase 2 simple brains)', () => {
+  /** Impostor and a lone crew bot in Reactor, everyone else far away in Navigation. */
+  function isolated(seed: number) {
+    const s = createGame(map, { ...defaultSettings(), players: 10, impostors: 2 }, seed, config);
+    const imp = s.units.find((u) => u.role === 'impostor' && !u.isPlayer)!;
+    const victim = s.units.find((u) => u.role === 'crew' && !u.isPlayer)!;
+    for (const u of s.units) {
+      u.x = 31 * TS + TS / 2;
+      u.y = 4 * TS + TS / 2;
+    }
+    imp.x = 50 * TS + TS / 2;
+    imp.y = 54 * TS + TS / 2;
+    victim.x = 56 * TS + TS / 2;
+    victim.y = 54 * TS + TS / 2;
+    imp.killCooldownTicks = 0;
+    // Park the victim: no tasks, so it stays put (a real target would wander, which also works).
+    victim.tasks = [];
+    return { s, imp, victim };
+  }
+
+  it('an impostor bot hunts and kills a crew member nobody else can see', () => {
+    const { s, imp, victim } = isolated(17);
+    let killed = false;
+    for (let i = 0; i < config.tickRate * 20 && !killed; i++) {
+      stepSim(s, NO_INPUT, map, config);
+      if (!victim.alive) killed = true;
+    }
+    expect(killed).toBe(true);
+    expect(s.bodies.length).toBe(1);
+    expect(imp.killCooldownTicks).toBeGreaterThan(0);
+  });
+
+  it('an impostor bot does not kill when someone else can see the target', () => {
+    const { s, victim } = isolated(17);
+    const witness = s.units.find((u) => u.role === 'crew' && !u.isPlayer && u.id !== victim.id)!;
+    witness.x = victim.x - 4 * TS;
+    witness.y = victim.y;
+    witness.tasks = [];
+    for (let i = 0; i < config.tickRate * 15; i++) stepSim(s, NO_INPUT, map, config);
+    expect(victim.alive).toBe(true);
+  });
+
+  it('a crew bot that sees a body walks over and reports it, starting a meeting', () => {
+    const { s, imp, victim } = isolated(18);
+    imp.x = 31 * TS + TS / 2; // the impostor goes far away so it cannot interfere
+    imp.y = 4 * TS + TS / 2;
+    victim.alive = false;
+    victim.deathTick = 0;
+    s.bodies.push({ unitId: victim.id, x: victim.x, y: victim.y, tick: 0 });
+    const reporter = s.units.find((u) => u.role === 'crew' && !u.isPlayer && u.id !== victim.id)!;
+    reporter.x = victim.x - 6 * TS;
+    reporter.y = victim.y;
+    let meetingAt = -1;
+    for (let i = 0; i < config.tickRate * 15 && meetingAt < 0; i++) {
+      stepSim(s, NO_INPUT, map, config);
+      if (s.phase === 'meeting') meetingAt = s.tick;
+    }
+    expect(meetingAt).toBeGreaterThan(0);
+    expect(s.meeting?.calledBy).toBe(reporter.id);
+    expect(s.meeting?.bodyOf).toBe(victim.id);
+    expect(s.bodies).toEqual([]);
+  });
+
+  it('dead crew bots keep doing tasks as ghosts; dead impostors never kill', () => {
+    const s = createGame(map, { ...defaultSettings(), players: 6, impostors: 1 }, 19, config);
+    for (const u of s.units) if (!u.isPlayer) { u.alive = false; u.deathTick = 0; }
+    for (let i = 0; i < config.tickRate * 240; i++) stepSim(s, NO_INPUT, map, config);
+    expect(s.crewTasks.done).toBeGreaterThan(0);
+    expect(s.bodies).toEqual([]);
+    expect(player(s).alive).toBe(true);
+  });
+
+  it('a whole bot game stays deterministic with kills and meetings in it', () => {
+    const play = () => {
+      const s = createGame(map, { ...defaultSettings(), players: 10, impostors: 2, crewVision: 0.5 }, 23, config);
+      for (let i = 0; i < config.tickRate * 240; i++) stepSim(s, i % 400 === 0 ? { ...NO_INPUT, continuePressed: true } : NO_INPUT, map, config);
+      return { units: s.units.map((u) => [u.name, u.alive, Math.round(u.x), Math.round(u.y)]), meetings: s.meetingsHeld, tasks: s.crewTasks };
+    };
+    expect(play()).toEqual(play());
   });
 });

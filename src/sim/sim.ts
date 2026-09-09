@@ -1,12 +1,15 @@
 // The fixed-tick simulation. Pure TypeScript, no Phaser.
 //
-// Holds every unit (the player and the bots), their roles and task lists, and advances the world
-// one tick at a time. Deterministic: the same map, settings, seed and sequence of player inputs
-// always produce the same states. Bot decisions live in src/bots and are called from here.
+// Holds every unit (the player and the bots), their roles and task lists, bodies, the current
+// phase (play or meeting), and advances the world one tick at a time. Deterministic: the same map,
+// settings, seed and sequence of player inputs always produce the same states. Bot decisions live
+// in src/bots and are called from here; the rules for kills, reports, meetings and tasks live in
+// src/sim/actions.ts.
 
 import namesJson from '../../config/names.json';
 import colorsJson from '../../config/colors.json';
 import { createBotState, stepBot, type BotState } from '../bots/brain';
+import { endMeeting, findKillTarget, tryCallMeeting, tryKill, tryReport, updatePlayerTask, type Body, type MeetingState, type SimEvent } from './actions';
 import type { GameMap } from './map';
 import { moveWithCollision, normalizeDirection, type Vec2 } from './movement';
 import { Rng } from './rng';
@@ -17,6 +20,8 @@ export type Role = 'crew' | 'impostor';
 
 /** 'lobby': everyone is crew with no tasks, bots just mill about. 'game': a real match. */
 export type SimMode = 'lobby' | 'game';
+
+export type Phase = 'play' | 'meeting';
 
 export interface SimConfig {
   readonly tickRate: number;
@@ -30,6 +35,13 @@ export interface SimConfig {
   readonly tasks: {
     readonly durationSec: Readonly<Record<string, number>>;
     readonly botJitter: number;
+  };
+  readonly rules: {
+    readonly initialKillCooldownSec: number;
+    readonly reportRangeTiles: number;
+    readonly useRangeTiles: number;
+    readonly taskRangeTiles: number;
+    readonly playerTaskSpeed: number;
   };
   readonly bots: {
     readonly waypointTolerancePx: number;
@@ -49,13 +61,23 @@ export interface SimConfig {
       readonly turnSmoothing: number;
       readonly taskDistanceScaleTiles: number;
     };
+    readonly report: { readonly delaySec: readonly number[] };
+    readonly kill: { readonly hesitateSec: readonly number[]; readonly repathSec: number };
   };
 }
 
-/** What the player is pressing this tick: each axis is -1, 0 or 1. */
+/** What the player is doing this tick. Axes are -1, 0 or 1; the rest are key states. */
 export interface PlayerInput {
   readonly dx: number;
   readonly dy: number;
+  /** Use key held down (doing a task). */
+  readonly useHeld?: boolean;
+  /** Use key just pressed (button, objects). */
+  readonly usePressed?: boolean;
+  readonly killPressed?: boolean;
+  readonly reportPressed?: boolean;
+  /** Temporary until step 4: leaves the meeting placeholder. */
+  readonly continuePressed?: boolean;
 }
 
 export const NO_INPUT: PlayerInput = { dx: 0, dy: 0 };
@@ -67,6 +89,8 @@ export interface Unit {
   readonly role: Role;
   readonly isPlayer: boolean;
   alive: boolean;
+  /** Tick of death, or null while alive. */
+  deathTick: number | null;
   /** Centre of the unit in world pixels. */
   x: number;
   y: number;
@@ -75,6 +99,17 @@ export interface Unit {
   moving: boolean;
   /** Real tasks for crew; a fake list for impostors (never counted). */
   tasks: Task[];
+  /** Ticks until this impostor may kill again. Always 0 for crew. */
+  killCooldownTicks: number;
+  /** Emergency meetings this unit may still call. */
+  meetingsLeft: number;
+}
+
+export interface PlayerTaskProgress {
+  readonly taskId: string;
+  readonly spotId: string;
+  readonly ticks: number;
+  readonly needed: number;
 }
 
 export interface SimState {
@@ -83,10 +118,18 @@ export interface SimState {
   readonly settings: GameSettings;
   readonly rng: Rng;
   tick: number;
+  phase: Phase;
   units: Unit[];
   bots: BotState[];
+  bodies: Body[];
+  meeting: MeetingState | null;
+  meetingsHeld: number;
+  /** The player's hold-to-do task progress, if any. */
+  playerTask: PlayerTaskProgress | null;
   /** Crew task progress for the task bar. */
   crewTasks: { done: number; total: number };
+  /** What happened this tick, for sound and effects. Cleared at the start of every tick. */
+  events: SimEvent[];
 }
 
 const PLAYER_ID = 0;
@@ -115,22 +158,27 @@ export function createGame(map: GameMap, settings: GameSettings, seed: number, c
   const counts = { common: settings.commonTasks, long: settings.longTasks, short: settings.shortTasks };
   const half = map.tileSize / 2;
   const spawnOrder = rng.shuffle(range(map.spawns.length));
+  const initialCooldown = Math.round(config.rules.initialKillCooldownSec * config.tickRate);
 
   const units: Unit[] = [];
   for (let id = 0; id < count; id++) {
     const spawn = map.spawns[spawnOrder[id % spawnOrder.length] as number] as readonly [number, number];
+    const role: Role = impostorIds.has(id) ? 'impostor' : 'crew';
     units.push({
       id,
       name: id === PLAYER_ID ? settings.playerName : (names[id - 1] as string),
       colorId: id === PLAYER_ID ? settings.playerColor : (colorIds[id - 1] as string),
-      role: impostorIds.has(id) ? 'impostor' : 'crew',
+      role,
       isPlayer: id === PLAYER_ID,
       alive: true,
+      deathTick: null,
       x: spawn[0] * map.tileSize + half,
       y: spawn[1] * map.tileSize + half,
       facing: 1,
       moving: false,
       tasks: mode === 'lobby' ? [] : buildTaskList(map, rng, commonTypes, counts, id),
+      killCooldownTicks: role === 'impostor' ? initialCooldown : 0,
+      meetingsLeft: mode === 'lobby' ? 0 : settings.emergencyMeetings,
     });
   }
   const bots = units.filter((u) => !u.isPlayer).map((u) => createBotState(u.id, rng, config));
@@ -140,9 +188,15 @@ export function createGame(map: GameMap, settings: GameSettings, seed: number, c
     settings,
     rng,
     tick: 0,
+    phase: 'play',
     units,
     bots,
+    bodies: [],
+    meeting: null,
+    meetingsHeld: 0,
+    playerTask: null,
     crewTasks: { done: 0, total: 0 },
+    events: [],
   };
   state.crewTasks = crewTaskProgress(state);
   return state;
@@ -151,10 +205,34 @@ export function createGame(map: GameMap, settings: GameSettings, seed: number, c
 /** Advances the world by exactly one tick. Mutates and returns the same state. */
 export function stepSim(state: SimState, input: PlayerInput, map: GameMap, config: SimConfig): SimState {
   state.tick++;
+  state.events = [];
+
+  if (state.phase === 'meeting') {
+    // Step 4 replaces this with discussion, voting and the result. For now the meeting waits for Enter.
+    if (input.continuePressed) endMeeting(state, map, config);
+    return state;
+  }
+
+  for (const u of state.units) if (u.killCooldownTicks > 0) u.killCooldownTicks--;
+
   const speed = unitSpeedPxPerTick(state, config);
   const player = state.units[PLAYER_ID] as Unit;
   moveUnit(player, clamp1(input.dx), clamp1(input.dy), speed, map, config);
+
+  if (state.mode === 'game') {
+    if (player.alive) {
+      if (input.killPressed && player.role === 'impostor') {
+        const target = findKillTarget(state, player, config);
+        if (target) tryKill(state, player, target, config);
+      }
+      if (input.reportPressed) tryReport(state, player, map, config);
+      if (input.usePressed && state.phase === 'play') tryCallMeeting(state, player, map, config);
+    }
+    if (state.phase === 'play') updatePlayerTask(state, player, input.useHeld === true, map, config);
+  }
+
   for (const bot of state.bots) {
+    if (state.phase !== 'play') break;
     const unit = state.units[bot.unitId] as Unit;
     stepBot(bot, unit, state, map, config);
   }
@@ -217,6 +295,10 @@ export function playerRegionName(state: SimState, map: GameMap): string | null {
 export function unitRegionName(unit: Unit, map: GameMap): string {
   const [tx, ty] = unitTile(unit, map);
   return map.regionAt(tx, ty)?.name ?? '?';
+}
+
+export function livingUnits(state: SimState): Unit[] {
+  return state.units.filter((u) => u.alive);
 }
 
 /** Bot names with distinct first letters, none equal to the player's name. */

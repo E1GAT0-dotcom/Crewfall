@@ -1,6 +1,6 @@
 # STATUS — Crewfall (working title)
 
-**Current phase:** Phase 2 — Core loop, steps 1–2 of 5 done (bots doing tasks; vision and lobby). Phase 1 signed off by Greg.
+**Current phase:** Phase 2 — Core loop, steps 1–3 of 5 done (bots and tasks; vision and lobby; kills, bodies, reporting, button, ghosts). Phase 1 signed off by Greg.
 
 ## How to launch
 Double-click `play.bat` in the project folder. A browser tab opens with the game.
@@ -31,12 +31,18 @@ Close the black command window to stop it.
   A starfield streams past behind the lobby and the ship. F3 draws every unit's sight radius.
   67 tests pass.
 
+- Phase 2 step 3: your task list and a hold-E progress ring; the crew task bar; Q kills (impostor,
+  with cooldown), bodies with a "dead" sprite, R reports, E at the emergency button; impostor bots hunt
+  and kill when nobody could see; crew bots walk to and report bodies they see; dead players are ghosts
+  who keep doing tasks. A meeting freezes play and shows who called it (placeholder until step 4).
+  83 tests pass.
+
 ## Not yet built
-- Phase 2 steps 3–5: tasks for the player, kills, bodies, reporting, meetings, voting, endings.
+- Phase 2 steps 4–5: the meeting screen (chat, voting, ejection), win/lose conditions and screen.
 
 ## Known limitations (by design in Phase 1)
 - The unit is a placeholder with idle and walk animations only.
 - Vents, sabotage panels, doors and task spots exist in the map file but are not drawn or usable yet.
 
 ## Known bugs
-None yet.
+None known. Note: with no endings yet (step 5), a match keeps going after everyone is dead; press Esc for the lobby.

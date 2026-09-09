@@ -1,16 +1,21 @@
 // One unit on screen: a tinted grayscale base sprite with a fixed-colour detail sprite on top,
-// and the unit's name floating above.
+// and the unit's name floating above. Also used for bodies (the "dead" frame) and ghosts (faded).
 
 import Phaser from 'phaser';
 import { unitSheet } from './assets';
 import type { Unit } from '../sim/sim';
+
+type Anim = 'idle' | 'walk' | 'dead';
+
+const GHOST_ALPHA = 0.45;
 
 export class UnitView {
   readonly container: Phaser.GameObjects.Container;
   private readonly base: Phaser.GameObjects.Sprite;
   private readonly detail: Phaser.GameObjects.Sprite;
   private readonly label: Phaser.GameObjects.Text;
-  private currentAnim: 'idle' | 'walk' = 'idle';
+  private currentAnim: Anim | null = null;
+  private ghost = false;
 
   /**
    * @param frameOriginY where in the 64 px frame the unit's collision centre sits (0..1).
@@ -38,7 +43,29 @@ export class UnitView {
     this.play(state.moving ? 'walk' : 'idle');
   }
 
-  private play(anim: 'idle' | 'walk'): void {
+  /** Ghosts are drawn faded (only other ghosts can see them; the scene decides visibility). */
+  setGhost(ghost: boolean): void {
+    if (this.ghost === ghost) return;
+    this.ghost = ghost;
+    this.container.setAlpha(ghost ? GHOST_ALPHA : 1);
+  }
+
+  /** Shows the body frame at a fixed spot. */
+  showAsBody(x: number, y: number): void {
+    this.container.setPosition(Math.round(x), Math.round(y));
+    this.container.setDepth(9);
+    this.play('dead');
+  }
+
+  setVisible(visible: boolean): void {
+    this.container.setVisible(visible);
+  }
+
+  destroy(): void {
+    this.container.destroy(true);
+  }
+
+  private play(anim: Anim): void {
     if (this.currentAnim === anim && this.base.anims.isPlaying) return;
     this.currentAnim = anim;
     this.base.play(unitSheet('base', anim), true);

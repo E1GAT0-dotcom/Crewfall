@@ -19,7 +19,11 @@ time, or type one to replay the same game (F3 shows the current seed).
 | Key | Action |
 |---|---|
 | W A S D or arrow keys | Move |
-| E or Space | Use (settings computer, start pad) |
+| E or Space | Use: settings computer, start pad, emergency button. Hold to do a task |
+| R | Report a body you are standing next to |
+| Q | Kill (impostors only, when the cooldown is ready and someone is in reach) |
+| Enter | Leave the meeting placeholder (until step 4) |
+| Esc | Back to the lobby (in a match) |
 | Tab (hold) | Show the full map (in a match) |
 | F3 | Debug overlay on/off |
 
@@ -39,3 +43,18 @@ Open `assets/maps/kestrel.json` in any text editor. The `tiles` section is a pic
 one character per floor tile (`#` wall, `.` floor). The `_help` lines at the top explain the rest.
 After editing, run `npm test` in a command window in the project folder: it lists any rule the map
 now breaks, in plain language. Then relaunch `play.bat`.
+
+## Tasks
+Your tasks are listed top-left with the room each one is in. Walk to the spot and hold E; a ring
+fills up around you. Let go or walk away and it resets. The bar at the top shows how many of the
+crew's tasks are done. Impostors get a fake list that never counts.
+
+## Kills, bodies and reporting
+Impostors press Q to kill someone in reach; the cooldown (top right) restarts after each kill.
+A body stays where it fell. Anyone alive standing next to a body can press R to report it, or
+press E at the red emergency button in Cafeteria to call a meeting. Bots do the same: crew bots
+report bodies they see; impostor bots kill when nobody could be watching.
+
+## Ghosts
+When you die you become a ghost: you can still walk around and finish your tasks, which still
+count for the crew. Only other ghosts can see you.

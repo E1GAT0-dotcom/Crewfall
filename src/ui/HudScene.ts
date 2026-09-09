@@ -1,10 +1,12 @@
-// Heads-up display drawn on top of the Play scene: room name, key hints, the Tab map and F3 debug text.
+// Heads-up display drawn on top of the Play scene: room name, role and task list, task bar, key
+// prompts, the Tab map, the F3 debug text, and (until step 4) the meeting placeholder.
 // Runs as its own scene so it is not affected by the world camera.
 
 import Phaser from 'phaser';
 import { describeGoal } from '../bots/brain';
 import type { GameMap } from '../sim/map';
-import { playerRegionName, unitRegionName } from '../sim/sim';
+import { COLORS, playerRegionName, unitRegionName, type SimState, type Unit } from '../sim/sim';
+import { nextStage, TASK_LABELS } from '../sim/tasks';
 import type { PlayScene } from '../game/PlayScene';
 
 const PLAY_SCENE_KEY = 'Play';
@@ -16,12 +18,17 @@ const STYLE = {
   panelAlpha: 0.75,
   text: '#e6ebf5',
   dim: '#8f9ab5',
+  done: '#5c6579',
+  crew: '#5ee6f5',
+  impostor: '#ff6b6b',
   mapRoom: 0x4a5368,
   mapCorridor: 0x353c4c,
   mapWall: 0x7c869e,
   mapLabel: '#c8d0e0',
   player: 0x2fd3e6,
   button: 0xd2372f,
+  barBack: 0x1a1e2a,
+  barFill: 0x3ccf6a,
 };
 
 export class HudScene extends Phaser.Scene {
@@ -30,15 +37,23 @@ export class HudScene extends Phaser.Scene {
   private play!: PlayScene;
   private map!: GameMap;
   private roomLabel!: Phaser.GameObjects.Text;
+  private roleLabel!: Phaser.GameObjects.Text;
+  private taskList!: Phaser.GameObjects.Text;
+  private killLabel!: Phaser.GameObjects.Text;
   private promptText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
+  private taskBar!: Phaser.GameObjects.Graphics;
+  private taskBarText!: Phaser.GameObjects.Text;
+  private shownTaskProgress = { done: 0, total: 0 };
+  private meetingBox!: Phaser.GameObjects.Container;
+  private meetingText!: Phaser.GameObjects.Text;
   private debugText!: Phaser.GameObjects.Text;
   private debugOn = false;
   private tabMap!: Phaser.GameObjects.Container;
   private tabMapPlayer!: Phaser.GameObjects.Arc;
   private tabMapScale = 1;
   private tabMapOrigin = { x: 0, y: 0 };
-  private keys!: { TAB: Phaser.Input.Keyboard.Key; F3: Phaser.Input.Keyboard.Key };
+  private keys!: { TAB: Phaser.Input.Keyboard.Key; F3: Phaser.Input.Keyboard.Key; ESC: Phaser.Input.Keyboard.Key };
 
   constructor() {
     super(HudScene.KEY);
@@ -47,44 +62,75 @@ export class HudScene extends Phaser.Scene {
   create(): void {
     this.play = this.scene.get(PLAY_SCENE_KEY) as PlayScene;
     this.map = this.play.gameMap;
+    const lobby = this.play.simMode === 'lobby';
+    const W = this.scale.width;
+    const H = this.scale.height;
 
     const keyboard = this.input.keyboard;
     if (!keyboard) throw new Error('Keyboard input is not available.');
-    this.keys = keyboard.addKeys('TAB,F3') as HudScene['keys'];
+    this.keys = keyboard.addKeys('TAB,F3,ESC') as HudScene['keys'];
 
     this.roomLabel = this.add
       .text(16, 12, '', { fontFamily: STYLE.font, fontSize: '26px', fontStyle: 'bold', color: STYLE.text })
       .setShadow(0, 2, '#000000', 4, false, true)
       .setDepth(10);
+    this.roleLabel = this.add
+      .text(16, 46, '', { fontFamily: STYLE.font, fontSize: '15px', fontStyle: 'bold', color: STYLE.crew })
+      .setShadow(0, 1, '#000000', 3, false, true)
+      .setDepth(10);
+    this.taskList = this.add
+      .text(16, 72, '', { fontFamily: STYLE.font, fontSize: '14px', color: STYLE.text, backgroundColor: 'rgba(11,13,18,0.6)', padding: { x: 8, y: 6 }, lineSpacing: 3 })
+      .setDepth(10)
+      .setVisible(!lobby);
+    this.killLabel = this.add
+      .text(W - 16, 12, '', { fontFamily: STYLE.font, fontSize: '18px', fontStyle: 'bold', color: STYLE.impostor })
+      .setOrigin(1, 0)
+      .setShadow(0, 1, '#000000', 3, false, true)
+      .setDepth(10);
 
-    const lobby = this.play.simMode === 'lobby';
+    this.taskBar = this.add.graphics().setDepth(10);
+    this.taskBarText = this.add
+      .text(W / 2, 14, '', { fontFamily: STYLE.font, fontSize: '13px', fontStyle: 'bold', color: STYLE.text })
+      .setOrigin(0.5, 0)
+      .setShadow(0, 1, '#000000', 2, false, true)
+      .setDepth(11);
+
     this.hintText = this.add
       .text(
-        this.scale.width / 2,
-        this.scale.height - 14,
+        W / 2,
+        H - 14,
         lobby
           ? 'Walk to the SETTINGS computer or the START pad and press E.    WASD / arrows: move    F3: debug'
-          : 'WASD / arrows: move    E: use    Tab (hold): map    F3: debug',
-        { fontFamily: STYLE.font, fontSize: '15px', color: STYLE.dim },
+          : 'WASD / arrows: move    E: use / hold to do a task    R: report    Q: kill (impostor)    Tab: map    F3: debug    Esc: lobby',
+        { fontFamily: STYLE.font, fontSize: '14px', color: STYLE.dim },
       )
       .setOrigin(0.5, 1)
       .setDepth(10);
 
     this.promptText = this.add
-      .text(this.scale.width / 2, this.scale.height - 48, '', {
+      .text(W / 2, H - 48, '', {
         fontFamily: STYLE.font,
         fontSize: '20px',
         fontStyle: 'bold',
         color: STYLE.text,
         backgroundColor: 'rgba(11,13,18,0.75)',
         padding: { x: 14, y: 6 },
+        align: 'center',
       })
       .setOrigin(0.5, 1)
       .setDepth(10)
       .setVisible(false);
 
+    this.meetingText = this.add
+      .text(W / 2, H / 2, '', { fontFamily: STYLE.font, fontSize: '26px', fontStyle: 'bold', color: STYLE.text, align: 'center', lineSpacing: 10 })
+      .setOrigin(0.5);
+    this.meetingBox = this.add
+      .container(0, 0, [this.add.rectangle(W / 2, H / 2, W, H, STYLE.panel, 0.82), this.meetingText])
+      .setDepth(25)
+      .setVisible(false);
+
     this.debugText = this.add
-      .text(this.scale.width - 16, 12, '', {
+      .text(W - 16, 44, '', {
         fontFamily: STYLE.mono,
         fontSize: '14px',
         color: STYLE.text,
@@ -101,10 +147,11 @@ export class HudScene extends Phaser.Scene {
 
   override update(): void {
     const state = this.play.state;
+    const player = state.units[0] as Unit;
     const region = playerRegionName(state, this.map) ?? '';
     if (this.roomLabel.text !== region) this.roomLabel.setText(region);
 
-    const prompt = this.play.isPanelOpen ? null : this.play.prompt;
+    const prompt = this.play.isPanelOpen ? '' : this.play.prompts.join('\n');
     if (prompt) {
       if (this.promptText.text !== prompt) this.promptText.setText(prompt);
       this.promptText.setVisible(true);
@@ -112,6 +159,13 @@ export class HudScene extends Phaser.Scene {
       this.promptText.setVisible(false);
     }
     if (this.play.isPanelOpen) return;
+
+    if (this.play.simMode === 'game') {
+      this.updateRoleAndTasks(state, player);
+      this.updateTaskBar(state);
+      this.updateMeetingBox(state);
+      if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) this.play.backToLobby();
+    }
 
     if (Phaser.Input.Keyboard.JustDown(this.keys.F3)) {
       this.debugOn = !this.debugOn;
@@ -122,32 +176,94 @@ export class HudScene extends Phaser.Scene {
 
     const showMap = this.keys.TAB.isDown && this.play.simMode === 'game';
     if (showMap !== this.tabMap.visible) this.tabMap.setVisible(showMap);
-    if (showMap) {
-      const p = state.units[0];
-      if (p) this.tabMapPlayer.setPosition(this.tabMapOrigin.x + p.x * this.tabMapScale, this.tabMapOrigin.y + p.y * this.tabMapScale);
+    if (showMap) this.tabMapPlayer.setPosition(this.tabMapOrigin.x + player.x * this.tabMapScale, this.tabMapOrigin.y + player.y * this.tabMapScale);
+  }
+
+  private updateRoleAndTasks(state: SimState, player: Unit): void {
+    const role = player.role === 'impostor' ? 'IMPOSTOR' : 'CREW';
+    const status = player.alive ? '' : '   (dead: you are a ghost, tasks still count)';
+    const roleText = `${role}${status}`;
+    if (this.roleLabel.text !== roleText) this.roleLabel.setText(roleText).setColor(player.role === 'impostor' ? STYLE.impostor : STYLE.crew);
+
+    const lines = [player.role === 'impostor' ? 'FAKE TASKS' : 'TASKS'];
+    for (const task of player.tasks) {
+      const done = task.stages.filter((s) => s.done).length;
+      const stage = nextStage(task);
+      const spot = stage ? this.map.tasks.find((t) => t.id === stage.spotId) : null;
+      const where = spot ? ` — ${spot.room}` : '';
+      const count = task.stages.length > 1 ? ` (${done}/${task.stages.length})` : '';
+      lines.push(`${stage ? '•' : '✓'} ${TASK_LABELS[task.type] ?? task.type}${count}${where}`);
     }
+    const text = lines.join('\n');
+    if (this.taskList.text !== text) this.taskList.setText(text);
+
+    if (player.role === 'impostor' && player.alive) {
+      const secs = Math.ceil(player.killCooldownTicks / 30);
+      const kill = player.killCooldownTicks > 0 ? `Kill in ${secs}s` : 'Kill READY (Q)';
+      if (this.killLabel.text !== kill) this.killLabel.setText(kill);
+      this.killLabel.setVisible(state.phase === 'play');
+    } else {
+      this.killLabel.setVisible(false);
+    }
+  }
+
+  private updateTaskBar(state: SimState): void {
+    const mode = this.play.gameSettings.taskBarUpdates;
+    if (mode === 'never') {
+      this.taskBar.clear();
+      this.taskBarText.setVisible(false);
+      return;
+    }
+    if (mode === 'always' || state.phase === 'meeting' || state.tick === 0) this.shownTaskProgress = { ...state.crewTasks };
+    const { done, total } = this.shownTaskProgress;
+    const W = this.scale.width;
+    const barW = 320;
+    const barH = 14;
+    const x = W / 2 - barW / 2;
+    const y = 36;
+    this.taskBar.clear();
+    this.taskBar.fillStyle(STYLE.barBack, 0.9).fillRoundedRect(x, y, barW, barH, 6);
+    if (total > 0) this.taskBar.fillStyle(STYLE.barFill, 1).fillRoundedRect(x, y, Math.max(barH, (barW * done) / total), barH, 6);
+    const text = `Crew tasks ${done}/${total}${mode === 'meetings' ? ' (updates at meetings)' : ''}`;
+    if (this.taskBarText.text !== text) this.taskBarText.setText(text);
+    this.taskBarText.setVisible(true);
+  }
+
+  private updateMeetingBox(state: SimState): void {
+    if (state.phase !== 'meeting' || !state.meeting) {
+      this.meetingBox.setVisible(false);
+      return;
+    }
+    const m = state.meeting;
+    const caller = state.units[m.calledBy]?.name ?? 'Someone';
+    const victim = m.bodyOf !== null ? state.units[m.bodyOf]?.name ?? 'someone' : null;
+    const headline = m.reason === 'body' ? `${caller} reported ${victim}'s body` : `${caller} called an emergency meeting`;
+    const text = `${headline}\n\nThe meeting screen (chat and voting) arrives in step 4.\nPress Enter to return to the ship.`;
+    if (this.meetingText.text !== text) this.meetingText.setText(text);
+    this.meetingBox.setVisible(true);
   }
 
   private debugLines(region: string): string {
     const s = this.play.state;
     const ts = this.map.tileSize;
-    const p = s.units[0];
-    const tx = p ? Math.floor(p.x / ts) : 0;
-    const ty = p ? Math.floor(p.y / ts) : 0;
+    const p = s.units[0] as Unit;
+    const tx = Math.floor(p.x / ts);
+    const ty = Math.floor(p.y / ts);
     const nav = this.map.nav;
     let edgeCount = 0;
     for (const list of nav.edges) edgeCount += list.length;
     const lines = [
-      `fps ${Math.round(this.game.loop.actualFps)}   tick ${s.tick}   seed ${s.seed}   ${s.mode}`,
-      `you: ${p?.name} (${p?.role})   pos ${Math.round(p?.x ?? 0)}, ${Math.round(p?.y ?? 0)}   tile ${tx}, ${ty}   ${region}`,
-      `crew tasks ${s.crewTasks.done}/${s.crewTasks.total}   nav ${nav.nodes.length} nodes, ${edgeCount / 2} edges`,
+      `fps ${Math.round(this.game.loop.actualFps)}   tick ${s.tick}   seed ${s.seed}   ${s.mode} / ${s.phase}`,
+      `you: ${p.name} (${p.role}${p.alive ? '' : ', dead'})   pos ${Math.round(p.x)}, ${Math.round(p.y)}   tile ${tx}, ${ty}   ${region}`,
+      `crew tasks ${s.crewTasks.done}/${s.crewTasks.total}   bodies ${s.bodies.length}   meetings held ${s.meetingsHeld}   nav ${nav.nodes.length} nodes, ${edgeCount / 2} edges`,
       '',
     ];
     for (const bot of s.bots) {
       const u = s.units[bot.unitId];
       if (!u) continue;
-      const role = u.role === 'impostor' ? 'IMP ' : 'crew';
-      lines.push(`${u.name.padEnd(6)} ${role}  ${unitRegionName(u, this.map).padEnd(11)} ${describeGoal(bot)}`);
+      const role = u.role === 'impostor' ? `IMP${u.killCooldownTicks > 0 ? ' ' + Math.ceil(u.killCooldownTicks / 30) + 's' : ' rdy'}` : 'crew';
+      const life = u.alive ? '' : ' †';
+      lines.push(`${(u.name + life).padEnd(8)} ${role.padEnd(7)} ${unitRegionName(u, this.map).padEnd(11)} ${describeGoal(bot)}`);
     }
     return lines.join('\n');
   }
@@ -203,7 +319,8 @@ export class HudScene extends Phaser.Scene {
       .text(this.scale.width / 2, oy - 8, map.name.toUpperCase(), { fontFamily: STYLE.font, fontSize: '18px', fontStyle: 'bold', color: STYLE.dim })
       .setOrigin(0.5, 1);
 
-    this.tabMapPlayer = this.add.circle(0, 0, Math.max(4, cell * 0.6), STYLE.player).setStrokeStyle(2, 0xffffff, 0.9);
+    const playerColour = COLORS.find((c) => c.id === this.play.state.units[0]?.colorId)?.tint ?? '#2fd3e6';
+    this.tabMapPlayer = this.add.circle(0, 0, Math.max(4, cell * 0.6), Phaser.Display.Color.HexStringToColor(playerColour).color).setStrokeStyle(2, 0xffffff, 0.9);
 
     this.tabMap = this.add.container(0, 0, [backdrop, picture, ...labels, title, this.tabMapPlayer]).setDepth(30).setVisible(false);
   }

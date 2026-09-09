@@ -161,3 +161,17 @@ The lobby is an oval spaceship pod that fits the screen at a fixed zoom; view di
 apply there. A starfield streams past behind the lobby and behind the ship in a match
 (`src/game/StarsScene.ts`, three layers at different speeds, tunable in config under `stars`).
 The outside of the ship is transparent so the stars show through.
+
+## 2026-09-08 — Step 3 rules and placeholders
+- **Meeting placeholder (temporary).** A report or the button freezes everyone and shows who
+  called it; Enter returns to play. Step 4 replaces this with the real meeting screen. Recorded
+  here because it is a stub shipped inside the phase, not as a finished feature.
+- **Ghosts** are the normal sprite drawn faded, visible only to dead players (and in F3). They walk
+  and collide like the living. A dedicated ghost sprite sheet comes with the final art in Phase 7.
+- **The killer hops onto the victim's spot** and the body lies there (a stylised kill; the real
+  kill animation is Phase 7). A "dead" frame was added to the sprite manifest for bodies.
+- **Impostor bots kill only when nobody could see it.** "Could see" uses every other unit's sight
+  radius, which is half a screen at their zoom. So kills need a quiet corner, and lowering crew
+  view distance makes kills easier. Greg's view-distance model decides this; it is tunable.
+- **Holding E to do a task stops you walking**, and progress is lost if you let go or step away.
+- **Esc** in a match returns to the lobby (a stand-in until the win/lose screen in step 5).

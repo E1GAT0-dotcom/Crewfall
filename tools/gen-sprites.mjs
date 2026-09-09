@@ -138,6 +138,32 @@ function drawFrame(base, detail, ox, bob, leftFootDy, rightFootDy) {
   }
 }
 
+/** A deactivated unit: squashed body, dark cracked visor, sparks. Non-gory (SPEC 11.1). */
+function drawDeadFrame(base, detail, ox) {
+  const cx = 32, cy = 42;
+  const shape = (x, y) => (inSquircle(x, y, cx, cy, 19, 11, 3.4) ? 'body' : null);
+  for (let y = 0; y < FRAME; y++) for (let x = 0; x < FRAME; x++) {
+    if (!shape(x, y)) continue;
+    const shade = 175 - Math.round(Math.max(0, (x - 20) * 0.8 + (y - cy) * 1.6));
+    base.set(ox + x, y, [shade, shade, shade, 255]);
+  }
+  for (let y = 0; y < FRAME; y++) for (let x = 0; x < FRAME; x++) {
+    if (!shape(x, y)) continue;
+    const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !shape(x + dx, y + dy));
+    if (edge) detail.set(ox + x, y, [26, 30, 46, 255]);
+  }
+  // Dark visor with a crack.
+  for (let y = 0; y < FRAME; y++) for (let x = 0; x < FRAME; x++) {
+    if (shape(x, y) !== 'body') continue;
+    if (inSquircle(x, y, 34, cy - 3, 12, 4, 3)) detail.set(ox + x, y, [40, 52, 70, 255]);
+  }
+  const crack = [[27, cy - 6], [28, cy - 5], [29, cy - 4], [28, cy - 3], [29, cy - 2], [30, cy - 1], [31, cy], [33, cy - 4], [34, cy - 3], [35, cy - 2]];
+  for (const [x, y] of crack) detail.set(ox + x, y, [150, 190, 210, 255]);
+  // Sparks.
+  for (const [x, y] of [[50, cy - 12], [52, cy - 10], [12, cy - 8]]) detail.set(ox + x, y, [255, 220, 120, 255]);
+  for (const [x, y] of [[51, cy - 11], [13, cy - 9]]) detail.set(ox + x, y, [255, 250, 200, 255]);
+}
+
 function makeSheet(frames, frameFn) {
   const base = new Canvas(FRAME * frames, FRAME);
   const detail = new Canvas(FRAME * frames, FRAME);
@@ -159,6 +185,13 @@ const sheets = {
     };
   }),
 };
+
+{
+  const base = new Canvas(FRAME, FRAME);
+  const detail = new Canvas(FRAME, FRAME);
+  drawDeadFrame(base, detail, 0);
+  sheets.dead = { base, detail };
+}
 
 mkdirSync(OUT_DIR, { recursive: true });
 const written = [];
