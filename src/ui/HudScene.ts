@@ -149,7 +149,7 @@ export class HudScene extends Phaser.Scene {
       this.promptText.setVisible(false);
     }
     if (this.play.isPanelOpen) return;
-    if (this.play.isMeetingOpen) return;
+    if (this.play.isMeetingOpen || this.play.isEnded) return;
 
     if (this.play.simMode === 'game') {
       this.updateRoleAndTasks(state, player);

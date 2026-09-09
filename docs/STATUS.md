@@ -1,6 +1,6 @@
 # STATUS — Crewfall (working title)
 
-**Current phase:** Phase 2 — Core loop, steps 1–4 of 5 done (bots and tasks; vision and lobby; kills and reporting; meetings). Phase 1 signed off by Greg.
+**Current phase:** Phase 2 — Core loop. Built and self-tested (all five steps); awaiting Greg's play-test sign-off before Phase 3.
 
 ## How to launch
 Double-click `play.bat` in the project folder. A browser tab opens with the game.
@@ -44,12 +44,18 @@ Close the black command window to stop it.
   skipping, vote counting with skip and ties, the ejection reveal (confirm ejects setting), and the
   return to the ship. Dead players can read but not type or vote. 96 tests pass.
 
-## Not yet built
-- Phase 2 step 5: win/lose conditions, the win/lose screen, replay, and the full-game determinism test.
+- Phase 2 step 5: the four endings (crew by tasks, crew by ejecting every impostor, impostors by
+  numbers, and the immediate end when the last impostor is ejected), a win/lose screen naming the
+  impostors with Play again and Lobby, and a whole-game determinism test. 106 tests pass.
 
-## Known limitations (by design in Phase 1)
-- The unit is a placeholder with idle and walk animations only.
-- Vents, sabotage panels, doors and task spots exist in the map file but are not drawn or usable yet.
+## Not yet built
+- Phase 3 onward (SPEC.md §14): real bot brains, sabotage, task minigames, more maps, final art and sound.
+
+## Known limitations (by design so far)
+- The unit is a placeholder with idle, walk and dead frames; ghosts are the same sprite faded.
+- Bots have no memory or suspicion yet: meeting chat is generic small talk and votes are random (Phase 3).
+- No sabotage, vents or task minigames yet (Phases 4 and 5). Tasks are done by holding E.
+- Vents, sabotage panels and doors exist in the map file but are not drawn or usable yet.
 
 ## Known bugs
-None known. Note: with no endings yet (step 5), a match keeps going after everyone is dead; press Esc for the lobby.
+None known.

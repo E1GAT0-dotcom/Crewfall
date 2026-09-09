@@ -17,6 +17,7 @@ import { NavGraphView } from './NavGraphView';
 import { UnitView } from './UnitView';
 import { VisionView } from './VisionView';
 import { HudScene } from '../ui/HudScene';
+import { EndPanel } from '../ui/EndPanel';
 import { MeetingPanel } from '../ui/MeetingPanel';
 import { SettingsPanel } from '../ui/SettingsPanel';
 import { saveStoredSettings } from '../ui/settingsStore';
@@ -72,6 +73,7 @@ export class PlayScene extends Phaser.Scene {
   private debugOn = false;
   private settingsPanel: SettingsPanel | null = null;
   private meetingPanel: MeetingPanel | null = null;
+  private endPanel: EndPanel | null = null;
   /** What the keys would do right now, for the HUD. */
   private prompts_: string[] = [];
   /** Input read once per frame; "just pressed" keys can only be read once. */
@@ -118,6 +120,9 @@ export class PlayScene extends Phaser.Scene {
 
     const keyboard = this.input.keyboard;
     if (!keyboard) throw new Error('Keyboard input is not available.');
+    // A panel (settings, meeting, end screen) may have paused the keyboard before a scene restart.
+    keyboard.enabled = true;
+    keyboard.resetKeys();
     keyboard.addCapture(CAPTURED_KEYS);
     this.keys = keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE,Q,R,ENTER') as PlayScene['keys'];
 
@@ -148,12 +153,18 @@ export class PlayScene extends Phaser.Scene {
       this.settingsPanel = new SettingsPanel({ playerCap: matchMap.playerCap, impostorMax: matchMap.impostors.max });
     } else {
       this.meetingPanel = new MeetingPanel(gameConfig.tickRate);
+      this.endPanel = new EndPanel(
+        () => this.playAgain(),
+        () => this.backToLobby(),
+      );
     }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.settingsPanel?.destroy();
       this.settingsPanel = null;
       this.meetingPanel?.destroy();
       this.meetingPanel = null;
+      this.endPanel?.destroy();
+      this.endPanel = null;
       this.visionView.destroy();
       this.scene.stop(HudScene.KEY);
     });
@@ -192,6 +203,7 @@ export class PlayScene extends Phaser.Scene {
     }
     if (!panelOpen) this.handleUse();
     this.syncMeetingPanel();
+    this.syncEndPanel();
     this.computePrompts();
 
     // Rendering interpolates between the last two ticks for smooth motion.
@@ -250,7 +262,23 @@ export class PlayScene extends Phaser.Scene {
     if (!visible) this.debugGraphics.clear();
   }
 
-  /** Returns to the lobby (used by the HUD; a proper end screen arrives in step 5). */
+  /** A fresh match with the same settings: a new random seed unless the seed box is filled. */
+  playAgain(): void {
+    this.scene.restart({
+      ...this.data_,
+      mode: 'game',
+      settings: this.settings,
+      seedText: this.seedText,
+      seed: this.seedText ? seedFromText(this.seedText) : randomSeed(),
+      keepPlayerAt: undefined,
+    } satisfies PlaySceneData);
+  }
+
+  get isEnded(): boolean {
+    return this.sim.phase === 'ended';
+  }
+
+  /** Returns to the lobby (Esc in a match, or the end screen's Lobby button). */
   backToLobby(): void {
     this.scene.restart({ ...this.data_, mode: 'lobby', settings: this.settings, seedText: this.seedText, seed: undefined, keepPlayerAt: undefined } satisfies PlaySceneData);
   }
@@ -278,6 +306,19 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  /** Shows the win/lose screen once the game is over. */
+  private syncEndPanel(): void {
+    const panel = this.endPanel;
+    if (!panel || panel.isOpen) return;
+    if (this.sim.phase !== 'ended') return;
+    panel.open(this.sim);
+    const keyboard = this.input.keyboard;
+    if (keyboard) {
+      keyboard.enabled = false;
+      keyboard.resetKeys();
+    }
+  }
+
   private colourOf(colorId: string): number {
     const hex = COLORS.find((c) => c.id === colorId)?.tint ?? '#ffffff';
     return Phaser.Display.Color.HexStringToColor(hex).color;
@@ -291,6 +332,8 @@ export class PlayScene extends Phaser.Scene {
         else if (ev.killerId === player.id) this.cameras.main.shake(150, 0.004);
       } else if (ev.kind === 'meetingStart') {
         this.cameras.main.flash(300, 255, 255, 255);
+      } else if (ev.kind === 'gameOver') {
+        this.cameras.main.fade(600, 5, 7, 12, false);
       }
     }
   }

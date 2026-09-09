@@ -11,6 +11,7 @@ import colorsJson from '../../config/colors.json';
 import { createBotState, stepBot, type BotState } from '../bots/brain';
 import { findKillTarget, tryCallMeeting, tryKill, tryReport, updatePlayerTask, type Body, type SimEvent } from './actions';
 import { stepMeeting, type MeetingState, type Vote } from './meeting';
+import { checkWin, type Outcome } from './win';
 import type { GameMap } from './map';
 import { moveWithCollision, normalizeDirection, type Vec2 } from './movement';
 import { Rng } from './rng';
@@ -22,7 +23,7 @@ export type Role = 'crew' | 'impostor';
 /** 'lobby': everyone is crew with no tasks, bots just mill about. 'game': a real match. */
 export type SimMode = 'lobby' | 'game';
 
-export type Phase = 'play' | 'meeting';
+export type Phase = 'play' | 'meeting' | 'ended';
 
 export interface SimConfig {
   readonly tickRate: number;
@@ -141,6 +142,8 @@ export interface SimState {
   bodies: Body[];
   meeting: MeetingState | null;
   meetingsHeld: number;
+  /** Set once the game is over. */
+  outcome: Outcome | null;
   /** The player's hold-to-do task progress, if any. */
   playerTask: PlayerTaskProgress | null;
   /** Crew task progress for the task bar. */
@@ -212,6 +215,7 @@ export function createGame(map: GameMap, settings: GameSettings, seed: number, c
     bodies: [],
     meeting: null,
     meetingsHeld: 0,
+    outcome: null,
     playerTask: null,
     crewTasks: { done: 0, total: 0 },
     events: [],
@@ -225,8 +229,11 @@ export function stepSim(state: SimState, input: PlayerInput, map: GameMap, confi
   state.tick++;
   state.events = [];
 
+  if (state.phase === 'ended') return state;
   if (state.phase === 'meeting') {
     stepMeeting(state, input, map, config);
+    // Ejecting the last impostor (or the wrong person) can end the game the moment play would resume.
+    if ((state.phase as Phase) === 'play') checkWin(state);
     return state;
   }
 
@@ -253,6 +260,7 @@ export function stepSim(state: SimState, input: PlayerInput, map: GameMap, confi
     const unit = state.units[bot.unitId] as Unit;
     stepBot(bot, unit, state, map, config);
   }
+  if (state.phase === 'play') checkWin(state);
   return state;
 }
 

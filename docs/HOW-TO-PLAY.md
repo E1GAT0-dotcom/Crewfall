@@ -67,3 +67,9 @@ a tie, or more skips than votes for anyone, ejects nobody. With "confirm ejects"
 whether the ejected player was an impostor. Type in the box on the right and press Enter to talk.
 Dead players can read but not talk or vote. Right now bots only make small talk and vote at random;
 Phase 3 gives them memory and opinions.
+
+## How a game ends
+The crew wins when every crew task is done or every impostor has been voted out. The impostors win
+when they equal the crew in numbers. Voting out the last impostor ends the game on the spot. The end
+screen shows who the impostors were and why the game ended; Play again starts a new game with the
+same settings, Lobby takes you back to the pod.

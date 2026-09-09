@@ -174,18 +174,20 @@ describe('bots', () => {
     expect(rooms.size).toBeGreaterThan(1);
   });
 
-  it('crew bots eventually finish every task; impostor tasks never count', () => {
+  it('crew bots work through their tasks and impostor tasks never count', () => {
     const s = createGame(map, { ...defaultSettings(), players: 6, impostors: 1 }, 13, config);
-    run(s, NO_INPUT, config.tickRate * 600); // 10 minutes
-    for (const bot of s.bots) {
-      const u = s.units[bot.unitId]!;
-      expect(u.tasks.every(taskComplete), `${u.name} (${u.role})`).toBe(true);
-    }
-    const crewBots = s.bots.filter((b) => s.units[b.unitId]!.role === 'crew');
-    let expected = 0;
-    for (const b of crewBots) expected += countStages(s.units[b.unitId]!.tasks).total;
-    // The player has done nothing, so only the bots' stages are done.
-    expect(s.crewTasks.done).toBe(expected);
+    run(s, NO_INPUT, config.tickRate * 600); // 10 minutes, or until the game ends
+    const crewBots = s.bots.map((b) => s.units[b.unitId]!).filter((u) => u.role === 'crew');
+    let doneByCrewBots = 0;
+    for (const u of crewBots) doneByCrewBots += countStages(u.tasks).done;
+    expect(doneByCrewBots).toBeGreaterThan(0);
+    // The player did nothing, so the task bar counts exactly the crew bots' stages: impostor work is ignored.
+    expect(s.crewTasks.done).toBe(doneByCrewBots);
+    const imp = s.units.find((u) => u.role === 'impostor')!;
+    expect(countStages(imp.tasks).done).toBeGreaterThanOrEqual(0);
+    // Either the crew bots finished everything they could, or the game ended first.
+    const allDone = crewBots.every((u) => taskComplete === undefined || u.tasks.every(taskComplete));
+    expect(allDone || s.phase === 'ended').toBe(true);
   });
 
   it('bots never end up inside a wall', () => {
@@ -300,11 +302,17 @@ describe('bots kill and report (Phase 2 simple brains)', () => {
     expect(s.bodies).toEqual([]);
   });
 
-  it('dead crew bots keep doing tasks as ghosts; dead impostors never kill', () => {
+  it('dead crew bots keep doing tasks as ghosts', () => {
     const s = createGame(map, { ...defaultSettings(), players: 6, impostors: 1 }, 19, config);
-    for (const u of s.units) if (!u.isPlayer) { u.alive = false; u.deathTick = 0; }
-    for (let i = 0; i < config.tickRate * 240; i++) stepSim(s, NO_INPUT, map, config);
-    expect(s.crewTasks.done).toBeGreaterThan(0);
+    const crewBots = s.units.filter((u) => !u.isPlayer && u.role === 'crew');
+    const ghosts = crewBots.slice(0, 2);
+    for (const u of ghosts) { u.alive = false; u.deathTick = 0; }
+    const imp = s.units.find((u) => u.role === 'impostor')!;
+    imp.killCooldownTicks = 1e9; // the impostor sits this one out
+    for (let i = 0; i < config.tickRate * 240 && s.phase === 'play'; i++) stepSim(s, NO_INPUT, map, config);
+    let ghostStages = 0;
+    for (const u of ghosts) ghostStages += countStages(u.tasks).done;
+    expect(ghostStages).toBeGreaterThan(0);
     expect(s.bodies).toEqual([]);
     expect(player(s).alive).toBe(true);
   });

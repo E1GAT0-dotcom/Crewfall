@@ -19,6 +19,7 @@ export interface Body {
 export type SimEvent =
   | { kind: 'kill'; killerId: number; victimId: number; x: number; y: number }
   | { kind: 'taskStage'; unitId: number; taskId: string; taskDone: boolean }
+  | { kind: 'gameOver'; winner: 'crew' | 'impostor'; reason: 'tasks' | 'ejected' | 'numbers' | 'sabotage' }
   | MeetingEvent;
 
 export function killRangePx(state: SimState, config: SimConfig): number {

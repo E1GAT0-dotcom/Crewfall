@@ -195,3 +195,16 @@ of the time, otherwise a random living player, never themselves or a fellow impo
 After voting closes the result ("X was ejected. X was / was not an impostor." or "No one was
 ejected." / "Tie") shows for `meeting.resultSec` before everyone returns to the spawn ring.
 The eject animation is Phase 7 art.
+
+## 2026-09-08 — Endings and replay
+`src/sim/win.ts` checks SPEC 4.3 after every play tick and the moment a meeting closes: crew win
+by tasks or by no living impostor; impostor win when living impostors equal or outnumber living
+crew. The sabotage ending arrives in Phase 4. The game freezes in an "ended" phase; the end screen
+(`src/ui/EndPanel.ts`) names the impostors, says why the game ended, shows a few numbers including
+the seed, and offers Play again (same settings, new random seed unless the seed box is filled) and
+Lobby.
+
+## 2026-09-08 — The idle player can block a task win
+In headless bot games the player never does tasks, so the crew cannot win by tasks while the player
+is crew. That is correct behaviour (a real player does their tasks); the whole-game tests use the
+other endings. The Phase 3 simulator will run all-bot lobbies (SPEC 9.13).
