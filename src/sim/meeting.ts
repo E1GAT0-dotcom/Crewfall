@@ -4,6 +4,7 @@
 
 import { broadcastClaim, claimWindow } from '../bots/claims';
 import { closeAllSightings, pruneForMeeting } from '../bots/memory';
+import { onEjectionResult, onMeetingStart } from '../bots/suspicion';
 import { pickLine, type Intent } from '../chat/templates';
 import type { GameMap } from './map';
 import { unitRegionName, type PlayerInput, type SimConfig, type SimState, type Unit } from './sim';
@@ -36,6 +37,8 @@ export interface MeetingState {
   readonly reason: MeetingReason;
   /** Whose body was reported, or null for the emergency button. */
   readonly bodyOf: number | null;
+  /** Room the body lay in, or null. */
+  readonly bodyRoom: string | null;
   readonly startedTick: number;
   stage: MeetingStage;
   /** Tick at which the current stage ends. */
@@ -68,10 +71,13 @@ export function startMeeting(state: SimState, calledBy: Unit, reason: MeetingRea
   for (const u of state.units) roomsAtStart[u.id] = unitRegionName(u, map);
   const discussionTicks = Math.round(state.settings.discussionSec * config.tickRate);
   const [f0, f1] = pair(config.meeting.botChat.firstMessageDelaySec, 0.8, 2.5);
+  const body = bodyOf !== null ? state.bodies.find((b) => b.unitId === bodyOf) : undefined;
+  const bodyRoom = body ? map.regionAt(Math.floor(body.x / map.tileSize), Math.floor(body.y / map.tileSize))?.name ?? null : null;
   const meeting: MeetingState = {
     calledBy: calledBy.id,
     reason,
     bodyOf,
+    bodyRoom,
     startedTick: state.tick,
     stage: 'discussion',
     stageEndsTick: state.tick + discussionTicks,
@@ -105,6 +111,8 @@ export function startMeeting(state: SimState, calledBy: Unit, reason: MeetingRea
     b.headY = 0;
   }
   state.events.push({ kind: 'meetingStart', calledBy: calledBy.id, reason, bodyOf });
+  // Now that memories are closed, every bot weighs what it saw around the death (SPEC 9.7).
+  onMeetingStart(state, map, config);
   if (discussionTicks <= 0) enterVoting(state, config);
 }
 
@@ -213,6 +221,7 @@ function finishMeeting(state: SimState, map: GameMap, config: SimConfig): void {
       u.ejected = true;
       u.deathTick = state.tick;
     }
+    onEjectionResult(state, ejected, m.result?.wasImpostor ?? null, m.votes);
   }
   endMeeting(state, map, config);
 }

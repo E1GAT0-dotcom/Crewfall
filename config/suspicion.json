@@ -1,0 +1,45 @@
+{
+  "_help": [
+    "The suspicion model (SPEC 9.7). Suspicion runs 0-100 per bot per target; trust runs 0-1 and starts at 0.5.",
+    "weights: how much each piece of evidence moves suspicion. 'certain' locks it at 100 for good; 'cleared' locks it at 0.",
+    "trust: how much a matching or clashing claim moves trust in the speaker.",
+    "windows: seconds. bodyRoomLeave: seen leaving the body's room this long before the report counts.",
+    "  lastSeenWith: the last sighting of the victim must end within this long before the report to count.",
+    "  killSlack: 'with me during the kill' is judged over the kill moment plus/minus this.",
+    "  shadow: someone within shadowRangeTiles of me for this long is shadowing me; rearm after shadowRearm.",
+    "thresholds: accuse in chat at or above accuse; vote for the top suspect at or above vote (personalities adjust these in step 3)."
+  ],
+  "weights": {
+    "witnessedKill": "certain",
+    "sawVent": "certain",
+    "leftBodyRoom": 35,
+    "lastSeenWithVictim": 30,
+    "contradiction": 40,
+    "accusedByTrustedBot": 15,
+    "accusedByPlayer": 10,
+    "selfReport": 10,
+    "shadowing": 10,
+    "votedOutCrew": 10,
+    "withMeDuringKill": -40,
+    "visualTask": "cleared",
+    "decayPerMeeting": -5
+  },
+  "trust": {
+    "start": 0.5,
+    "corroborated": 0.1,
+    "contradicted": -0.2
+  },
+  "windows": {
+    "bodyRoomLeaveSec": 20,
+    "lastSeenWithSec": 60,
+    "killSlackSec": 5,
+    "shadowSec": 15,
+    "shadowRangeTiles": 3,
+    "shadowRearmSec": 30
+  },
+  "thresholds": {
+    "accuse": 50,
+    "vote": 40
+  },
+  "evidenceLogMax": 60
+}

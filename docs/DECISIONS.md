@@ -239,3 +239,20 @@ Every alibi said in a meeting is stored once in the game as a claim covering the
 meeting. Each living bot checks it against its own sightings; a clash of at least 2 s becomes a
 contradiction in that bot's memory, with a plain-language "why". The player's typed claims join in
 step 4 with the parser.
+
+## 2026-09-09 — Suspicion and trust carry reasons
+`src/bots/suspicion.ts` implements the SPEC 9.7 table with weights in `config/suspicion.json`.
+Every change is logged with a sentence ("Pip was the last one I saw with Ida, in Cafeteria at
+0:12"), shown in the F3 inspector and used for "why I voted" in step 3. Two locks: a witnessed kill
+(or vent, Phase 4) pins suspicion at 100 for good; a seen visual task (Phase 5) pins it at 0 unless
+a kill is witnessed later. Decay only touches unlocked scores.
+
+## 2026-09-09 — "With me during the kill" uses the real moment of death
+A bot cannot know exactly when a victim died, only when it last saw them alive and when the body
+was reported. To keep the alibi rule simple and fair, "continuously with me during the kill window"
+is judged over the true death tick plus or minus 5 seconds (`windows.killSlackSec`). It only ever
+lowers suspicion of someone who really was beside the bot, so it never invents guilt.
+
+## 2026-09-09 — Bots can be frozen for tests
+`BotState.frozen` stops a bot deciding and moving while it keeps seeing and remembering. Scripted
+scenario tests use it so bots do not report bodies or wander mid-scene. Not used in play.

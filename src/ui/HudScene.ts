@@ -5,6 +5,7 @@
 import Phaser from 'phaser';
 import { describeGoal } from '../bots/brain';
 import { clock, describeSighting, recentSightings } from '../bots/memory';
+import { describeSocial } from '../bots/suspicion';
 import type { GameMap } from '../sim/map';
 import { COLORS, playerRegionName, unitRegionName, type SimState, type Unit } from '../sim/sim';
 import { nextStage, TASK_LABELS } from '../sim/tasks';
@@ -266,6 +267,7 @@ export class HudScene extends Phaser.Scene {
       for (const k of mem.kills) lines.push(`  WITNESSED ${s.units[k.killerId]?.name} kill ${s.units[k.victimId]?.name} in ${k.room} at ${clock(k.tick, 30)}`);
       for (const b of mem.bodies) lines.push(`  saw ${s.units[b.victimId]?.name}'s body in ${b.room} at ${clock(b.tick, 30)}`);
       for (const c of mem.contradictions.slice(-3)) lines.push('  CONTRADICTION: ' + c.why);
+      lines.push(...describeSocial(bot.social, s, bot.unitId, 30));
     } else if (s.mode === 'game') {
       lines.push('', 'press 1-9 to inspect a bot');
     }

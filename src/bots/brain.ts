@@ -21,6 +21,7 @@ import { completeStage, moveUnit, unitSpeedPxPerTick, unitTile, type SimConfig, 
 import { nextStage, TASK_LABELS, type Task } from '../sim/tasks';
 import { canSee, visionRadiusPx } from '../sim/vision';
 import { createMemory, type BotMemory } from './memory';
+import { createSocial, type SocialModel } from './suspicion';
 
 export type BotGoal =
   | { kind: 'idle' }
@@ -40,6 +41,10 @@ export interface BotState {
   readonly quirks: BotQuirks;
   /** What this bot has seen and heard (SPEC 9.3, 9.4). */
   readonly memory: BotMemory;
+  /** Who this bot suspects and trusts, and why (SPEC 9.7). */
+  readonly social: SocialModel;
+  /** Tests and the debug tools can freeze a bot in place; it still sees and remembers. */
+  frozen: boolean;
   goal: BotGoal;
   /** Remaining waypoints (tile positions) to the goal, walked in order. */
   path: TilePos[];
@@ -76,6 +81,8 @@ export function createBotState(unitId: number, rng: Rng, config: SimConfig): Bot
     unitId,
     quirks: { speed: rng.range(s0, s1) },
     memory: createMemory(),
+    social: createSocial(),
+    frozen: false,
     goal: { kind: 'idle' },
     path: [],
     pathIndex: 0,
@@ -108,7 +115,7 @@ export function resetBotGoal(bot: BotState): void {
 
 /** One tick of thinking and moving for one bot. */
 export function stepBot(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
-  if (state.phase !== 'play') return;
+  if (state.phase !== 'play' || bot.frozen) return;
 
   // Perception first: things worth dropping the current goal for.
   if (unit.alive) {

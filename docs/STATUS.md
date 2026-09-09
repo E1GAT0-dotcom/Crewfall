@@ -1,6 +1,6 @@
 # STATUS — Crewfall (working title)
 
-**Current phase:** Phase 3 — Bot brains, step 1 of 5 done (eyes and memory). Phase 2 built and self-tested; awaiting Greg's play-test sign-off.
+**Current phase:** Phase 3 — Bot brains, steps 1–2 of 5 done (memory; suspicion and trust). Phase 2 built and self-tested; awaiting Greg's play-test sign-off.
 
 ## How to launch
 Double-click `play.bat` in the project folder. A browser tab opens with the game.
@@ -53,8 +53,15 @@ Close the black command window to stop it.
   follow the difficulty; alibis said in meetings become public claims that each bot checks against
   its own sightings, recording contradictions. F3: press 1–9 to inspect a bot's memory. 119 tests pass.
 
+- Phase 3 step 2: every bot holds suspicion (0–100) and trust (0–1) toward everyone, moved only by
+  evidence with a written reason: witnessed kill (certain), left the body's room before the report,
+  last seen with the victim, contradicted alibi, accused by someone trusted or by the player,
+  self-report, shadowing, voted out a confirmed crewmate, with me during the kill (clears), decay
+  each meeting. Weights in config/suspicion.json. F3 inspector shows scores, trust and the last
+  five reasons. 132 tests pass.
+
 ## Not yet built
-- Phase 3 steps 2–5: suspicion and trust, personalities and decisions, voices and the chat parser,
+- Phase 3 steps 3–5: personalities and decisions (voting for reasons), voices and the chat parser,
   the simulator and F3 "why I voted". Then Phase 4 onward: sabotage, minigames, maps, art and sound.
 
 ## Known limitations (by design so far)

@@ -44,6 +44,8 @@ export interface Sighting {
   nearBody: boolean;
   /** Room the subject seemed to be heading for when last seen in a corridor, if any. */
   headingRoom: string | null;
+  /** Stretches of ticks during which the subject was within arm's reach of me. */
+  readonly nearMe: { from: number; to: number }[];
 }
 
 export interface KillWitness {
@@ -121,6 +123,7 @@ export function perceive(memory: BotMemory, observer: Unit, state: SimState, map
         taskSpotId: null,
         nearBody: false,
         headingRoom: null,
+        nearMe: [],
       };
       memory.open[subject.id] = s;
     }
@@ -138,6 +141,11 @@ export function perceive(memory: BotMemory, observer: Unit, state: SimState, map
       }
     }
     if (!anyone) s.aloneTicks++;
+    if (Math.hypot(observer.x - subject.x, observer.y - subject.y) <= companionRange) {
+      const run = s.nearMe[s.nearMe.length - 1];
+      if (run && run.to === state.tick - 1) run.to = state.tick;
+      else s.nearMe.push({ from: state.tick, to: state.tick });
+    }
 
     // Standing still at a task spot looks like doing a task.
     if (!subject.moving) {

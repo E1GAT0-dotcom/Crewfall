@@ -11,6 +11,7 @@ import colorsJson from '../../config/colors.json';
 import { createBotState, stepBot, type BotState } from '../bots/brain';
 import type { Claim } from '../bots/claims';
 import { perceive } from '../bots/memory';
+import { tickSocial } from '../bots/suspicion';
 import { findKillTarget, tryCallMeeting, tryKill, tryReport, updatePlayerTask, type Body, type SimEvent } from './actions';
 import { stepMeeting, type MeetingState, type Vote } from './meeting';
 import { checkWin, type Outcome } from './win';
@@ -269,7 +270,10 @@ export function stepSim(state: SimState, input: PlayerInput, map: GameMap, confi
   if (state.mode === 'game') {
     for (const bot of state.bots) {
       const unit = state.units[bot.unitId] as Unit;
-      if (unit.alive) perceive(bot.memory, unit, state, map, config);
+      if (unit.alive) {
+        perceive(bot.memory, unit, state, map, config);
+        tickSocial(bot.social, bot.memory, unit, state, map, config);
+      }
     }
   }
   if (state.phase === 'play') checkWin(state);

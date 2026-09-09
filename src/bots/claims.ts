@@ -9,6 +9,7 @@ import type { GameMap } from '../sim/map';
 import type { Difficulty } from '../sim/settings';
 import type { SimConfig, SimState } from '../sim/sim';
 import { BRAINS, recall, sightingsOf, type BotMemory } from './memory';
+import { onAccusation, onClaimChecked } from './suspicion';
 
 export type ClaimKind =
   /** "I was in {room}" (about the speaker, over the claim window). */
@@ -118,11 +119,17 @@ export function findContradiction(botId: number, memory: BotMemory, claim: Claim
 /** Records a claim and lets every living bot check it against its own memory. */
 export function broadcastClaim(state: SimState, claim: Omit<Claim, 'id' | 'tick' | 'meetingIndex'>, map: GameMap, config: SimConfig): Claim {
   const full = addClaim(state, claim);
+  const speaker = state.units[full.speakerId];
   for (const bot of state.bots) {
     const unit = state.units[bot.unitId];
-    if (!unit || !unit.alive) continue;
+    if (!unit || !unit.alive || unit.id === full.speakerId) continue;
+    if (full.kind === 'accuse') {
+      if (speaker) onAccusation(bot.social, unit.id, speaker, full.subjectId, state);
+      continue;
+    }
     const c = findContradiction(unit.id, bot.memory, full, state, map, config);
     if (c) bot.memory.contradictions.push(c);
+    onClaimChecked(bot.social, full, c, c ? false : corroborates(unit.id, bot.memory, full, state, map, config), state);
   }
   return full;
 }

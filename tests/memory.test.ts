@@ -23,7 +23,7 @@ function stillGame(seed = 1, over: Partial<GameSettings> = {}): { s: SimState; b
   for (const b of s.bots) {
     const u = s.units[b.unitId]!;
     u.tasks = [];
-    b.pauseTicks = 1e9; // never moves
+    b.frozen = true; // never moves or acts
     at(u, 31, 4); // everyone in Navigation
   }
   for (const u of s.units) if (u.role === 'impostor') u.killCooldownTicks = 1e9;
@@ -170,7 +170,7 @@ describe('perception', () => {
 });
 
 describe('recall by difficulty', () => {
-  const sample: Sighting = { id: 1, subjectId: 2, startTick: 1000, endTick: 1300, rooms: [{ tick: 1000, room: 'Medbay' }], companions: [], aloneTicks: 0, taskTicks: 0, taskSpotId: null, nearBody: false, headingRoom: null };
+  const sample: Sighting = { id: 1, subjectId: 2, startTick: 1000, endTick: 1300, rooms: [{ tick: 1000, room: 'Medbay' }], companions: [], aloneTicks: 0, taskTicks: 0, taskSpotId: null, nearBody: false, headingRoom: null, nearMe: [] };
 
   it('hard bots remember exactly', () => {
     const r = recall(1, sample, 'Medbay', 'hard', map, config);
