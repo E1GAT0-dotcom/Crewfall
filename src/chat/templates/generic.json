@@ -1,0 +1,78 @@
+{
+  "_help": [
+    "Phase 2 placeholder chat: a tiny generic set so meetings have voices. Phase 3 replaces this with",
+    "evidence-driven, personality-flavoured lines (SPEC 9.9).",
+    "Slots: {name} the speaker, {room} where the speaker was, {victim} whose body it was, {caller} who called the meeting,",
+    "{other} another player named in the conversation. No line repeats within one meeting."
+  ],
+  "intents": {
+    "open_body": [
+      "where was the body?",
+      "who found {victim}?",
+      "{caller} where was it",
+      "oh no, {victim}",
+      "anyone see anything near {victim}?",
+      "ok who was with {victim}",
+      "rip {victim}",
+      "so where did you find them {caller}"
+    ],
+    "open_button": [
+      "why the button {caller}?",
+      "what is it {caller}",
+      "{caller} you better have something",
+      "ok what happened",
+      "button for what",
+      "spill it {caller}",
+      "we were doing tasks, what",
+      "this better be good"
+    ],
+    "alibi": [
+      "i was in {room}",
+      "i was doing tasks in {room}",
+      "{room} the whole time",
+      "just came from {room}",
+      "been in {room} doing wires and stuff",
+      "i was over in {room}, saw nothing",
+      "{room}, nothing weird",
+      "was in {room} tbh"
+    ],
+    "shrug": [
+      "no idea",
+      "didn't see anything",
+      "i got nothing",
+      "no info here",
+      "nothing from me",
+      "not sure",
+      "dunno",
+      "i saw nobody"
+    ],
+    "skip": [
+      "skip?",
+      "no info, skip",
+      "i say skip",
+      "skip this one",
+      "just skip",
+      "skipping",
+      "let's skip and keep doing tasks",
+      "skip, we know nothing"
+    ],
+    "reply": [
+      "what?",
+      "ok...",
+      "hm",
+      "say what you mean",
+      "sure {other}",
+      "if you say so",
+      "and?",
+      "ok {other}"
+    ],
+    "voted": [
+      "voted",
+      "done",
+      "ok voted",
+      "locked in",
+      "my vote is in",
+      "voting now"
+    ]
+  }
+}

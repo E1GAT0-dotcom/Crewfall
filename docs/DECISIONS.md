@@ -175,3 +175,23 @@ The outside of the ship is transparent so the stars show through.
   view distance makes kills easier. Greg's view-distance model decides this; it is tunable.
 - **Holding E to do a task stops you walking**, and progress is lost if you let go or step away.
 - **Esc** in a match returns to the lobby (a stand-in until the win/lose screen in step 5).
+
+## 2026-09-08 — Meeting screen is HTML, meeting rules are pure
+The meeting screen (`src/ui/MeetingPanel.ts`) is an HTML panel like the settings panel: tiles,
+timer, chat log, text box, Skip and Confirm. It only displays the simulation's meeting state and
+queues the player's vote and typed lines, which the Play scene feeds into the simulation as input.
+All rules (stages, timers, vote counting, ejection, bot chat pacing, bot votes) are pure TypeScript
+in `src/sim/meeting.ts` and unit-tested.
+
+## 2026-09-08 — Phase 2 bot voices are deliberately generic
+Bots use `src/chat/templates/generic.json`: open the meeting, give a true-but-vague alibi (the room
+they were in when it started), shrug, suggest a skip, reply to the player with a non-answer, and
+announce a vote. One bot line every 1.5–3 s, at most 3 lines per bot per meeting plus its vote
+line, no repeats within a meeting, replies to the player within 2–5 s (SPEC 9.9). Phase 3 makes
+the content evidence-driven. Phase 2 bots vote at a random moment in the voting window: skip 40%
+of the time, otherwise a random living player, never themselves or a fellow impostor (SPEC 9.11).
+
+## 2026-09-08 — Result stays up 5 seconds
+After voting closes the result ("X was ejected. X was / was not an impostor." or "No one was
+ejected." / "Tie") shows for `meeting.resultSec` before everyone returns to the spawn ring.
+The eject animation is Phase 7 art.

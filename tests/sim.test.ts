@@ -15,9 +15,9 @@ function newGame(seed = 1, players = 10): SimState {
   return createGame(map, { ...defaultSettings(), players }, seed, config);
 }
 
-/** Steps the game; if a meeting starts (a bot reported a body), presses Enter to leave the step-3 placeholder. */
+/** Steps the game; in a meeting the player votes skip so bot-only games keep moving. */
 function run(state: SimState, input: PlayerInput, ticks: number): SimState {
-  for (let i = 0; i < ticks; i++) stepSim(state, state.phase === 'meeting' ? { ...input, continuePressed: true } : input, map, config);
+  for (let i = 0; i < ticks; i++) stepSim(state, state.phase === 'meeting' ? { ...input, voteFor: 'skip' } : input, map, config);
   return state;
 }
 
@@ -312,7 +312,7 @@ describe('bots kill and report (Phase 2 simple brains)', () => {
   it('a whole bot game stays deterministic with kills and meetings in it', () => {
     const play = () => {
       const s = createGame(map, { ...defaultSettings(), players: 10, impostors: 2, crewVision: 0.5 }, 23, config);
-      for (let i = 0; i < config.tickRate * 240; i++) stepSim(s, i % 400 === 0 ? { ...NO_INPUT, continuePressed: true } : NO_INPUT, map, config);
+      for (let i = 0; i < config.tickRate * 240; i++) stepSim(s, s.phase === 'meeting' ? { ...NO_INPUT, voteFor: 'skip' } : NO_INPUT, map, config);
       return { units: s.units.map((u) => [u.name, u.alive, Math.round(u.x), Math.round(u.y)]), meetings: s.meetingsHeld, tasks: s.crewTasks };
     };
     expect(play()).toEqual(play());

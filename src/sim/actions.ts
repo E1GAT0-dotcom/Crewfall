@@ -3,6 +3,7 @@
 // exactly the same rules (SPEC 4.4, 4.6, 7.2).
 
 import type { GameMap, TaskSpot } from './map';
+import { startMeeting, type MeetingEvent } from './meeting';
 import { KILL_DISTANCE_TILES } from './settings';
 import type { SimConfig, SimState, Unit } from './sim';
 import { completeStage, unitTile } from './sim';
@@ -15,21 +16,10 @@ export interface Body {
   readonly tick: number;
 }
 
-export type MeetingReason = 'body' | 'button';
-
-export interface MeetingState {
-  readonly calledBy: number;
-  readonly reason: MeetingReason;
-  /** Whose body was reported, or null for the emergency button. */
-  readonly bodyOf: number | null;
-  readonly startedTick: number;
-}
-
 export type SimEvent =
   | { kind: 'kill'; killerId: number; victimId: number; x: number; y: number }
-  | { kind: 'meetingStart'; calledBy: number; reason: MeetingReason; bodyOf: number | null }
-  | { kind: 'meetingEnd' }
-  | { kind: 'taskStage'; unitId: number; taskId: string; taskDone: boolean };
+  | { kind: 'taskStage'; unitId: number; taskId: string; taskDone: boolean }
+  | MeetingEvent;
 
 export function killRangePx(state: SimState, config: SimConfig): number {
   return KILL_DISTANCE_TILES[state.settings.killDistance] * config.tileSize;
@@ -98,7 +88,7 @@ export function tryReport(state: SimState, reporter: Unit, map: GameMap, config:
   const bodies = bodiesInReach(state, reporter, config);
   if (bodies.length === 0) return false;
   bodies.sort((a, b) => distance(reporter, a) - distance(reporter, b));
-  startMeeting(state, reporter, 'body', (bodies[0] as Body).unitId, map);
+  startMeeting(state, reporter, 'body', (bodies[0] as Body).unitId, map, config);
   return true;
 }
 
@@ -114,46 +104,8 @@ export function nearButton(unit: Unit, map: GameMap, config: SimConfig): boolean
 export function tryCallMeeting(state: SimState, caller: Unit, map: GameMap, config: SimConfig): boolean {
   if (state.phase !== 'play' || !caller.alive || caller.meetingsLeft <= 0 || !nearButton(caller, map, config)) return false;
   caller.meetingsLeft--;
-  startMeeting(state, caller, 'button', null, map);
+  startMeeting(state, caller, 'button', null, map, config);
   return true;
-}
-
-/** Freezes everyone and opens a meeting. Bodies are removed (SPEC 4.4). */
-export function startMeeting(state: SimState, calledBy: Unit, reason: MeetingReason, bodyOf: number | null, _map: GameMap): void {
-  state.phase = 'meeting';
-  state.meeting = { calledBy: calledBy.id, reason, bodyOf, startedTick: state.tick };
-  state.meetingsHeld++;
-  state.bodies = [];
-  state.playerTask = null;
-  for (const u of state.units) u.moving = false;
-  // Bots drop whatever they were doing; they think afresh after the meeting.
-  for (const b of state.bots) {
-    b.goal = { kind: 'idle' };
-    b.path = [];
-    b.pathIndex = 0;
-    b.waitTicks = 0;
-    b.actionTicks = 0;
-    b.headX = 0;
-    b.headY = 0;
-  }
-  state.events.push({ kind: 'meetingStart', calledBy: calledBy.id, reason, bodyOf });
-}
-
-/** Back to play: everyone returns to the spawn ring and kill cooldowns restart (SPEC 4.6). */
-export function endMeeting(state: SimState, map: GameMap, config: SimConfig): void {
-  state.phase = 'play';
-  state.meeting = null;
-  const half = map.tileSize / 2;
-  state.units.forEach((u, i) => {
-    const spawn = map.spawns[i % map.spawns.length];
-    if (spawn) {
-      u.x = spawn[0] * map.tileSize + half;
-      u.y = spawn[1] * map.tileSize + half;
-    }
-    u.moving = false;
-    if (u.role === 'impostor') u.killCooldownTicks = Math.round(config.rules.initialKillCooldownSec * config.tickRate);
-  });
-  state.events.push({ kind: 'meetingEnd' });
 }
 
 export interface ReachableStage {

@@ -1,6 +1,6 @@
 # STATUS — Crewfall (working title)
 
-**Current phase:** Phase 2 — Core loop, steps 1–3 of 5 done (bots and tasks; vision and lobby; kills, bodies, reporting, button, ghosts). Phase 1 signed off by Greg.
+**Current phase:** Phase 2 — Core loop, steps 1–4 of 5 done (bots and tasks; vision and lobby; kills and reporting; meetings). Phase 1 signed off by Greg.
 
 ## How to launch
 Double-click `play.bat` in the project folder. A browser tab opens with the game.
@@ -37,8 +37,15 @@ Close the black command window to stop it.
   who keep doing tasks. A meeting freezes play and shows who called it (placeholder until step 4).
   83 tests pass.
 
+- Phase 2 step 4: the meeting screen. Player tiles with alive/dead state, voted ticks and vote
+  markers (hidden until the result when anonymous votes is on), a discussion then voting timer from
+  the settings, voting ends early when everyone alive has voted, chat with Enter to send (Enter also
+  focuses the box), bots talking from a small generic set and answering you, bots voting randomly or
+  skipping, vote counting with skip and ties, the ejection reveal (confirm ejects setting), and the
+  return to the ship. Dead players can read but not type or vote. 96 tests pass.
+
 ## Not yet built
-- Phase 2 steps 4–5: the meeting screen (chat, voting, ejection), win/lose conditions and screen.
+- Phase 2 step 5: win/lose conditions, the win/lose screen, replay, and the full-game determinism test.
 
 ## Known limitations (by design in Phase 1)
 - The unit is a placeholder with idle and walk animations only.

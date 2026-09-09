@@ -1,5 +1,5 @@
 // Heads-up display drawn on top of the Play scene: room name, role and task list, task bar, key
-// prompts, the Tab map, the F3 debug text, and (until step 4) the meeting placeholder.
+// prompts, the Tab map and the F3 debug text. The meeting screen itself is src/ui/MeetingPanel.ts.
 // Runs as its own scene so it is not affected by the world camera.
 
 import Phaser from 'phaser';
@@ -45,8 +45,6 @@ export class HudScene extends Phaser.Scene {
   private taskBar!: Phaser.GameObjects.Graphics;
   private taskBarText!: Phaser.GameObjects.Text;
   private shownTaskProgress = { done: 0, total: 0 };
-  private meetingBox!: Phaser.GameObjects.Container;
-  private meetingText!: Phaser.GameObjects.Text;
   private debugText!: Phaser.GameObjects.Text;
   private debugOn = false;
   private tabMap!: Phaser.GameObjects.Container;
@@ -121,14 +119,6 @@ export class HudScene extends Phaser.Scene {
       .setDepth(10)
       .setVisible(false);
 
-    this.meetingText = this.add
-      .text(W / 2, H / 2, '', { fontFamily: STYLE.font, fontSize: '26px', fontStyle: 'bold', color: STYLE.text, align: 'center', lineSpacing: 10 })
-      .setOrigin(0.5);
-    this.meetingBox = this.add
-      .container(0, 0, [this.add.rectangle(W / 2, H / 2, W, H, STYLE.panel, 0.82), this.meetingText])
-      .setDepth(25)
-      .setVisible(false);
-
     this.debugText = this.add
       .text(W - 16, 44, '', {
         fontFamily: STYLE.mono,
@@ -159,11 +149,11 @@ export class HudScene extends Phaser.Scene {
       this.promptText.setVisible(false);
     }
     if (this.play.isPanelOpen) return;
+    if (this.play.isMeetingOpen) return;
 
     if (this.play.simMode === 'game') {
       this.updateRoleAndTasks(state, player);
       this.updateTaskBar(state);
-      this.updateMeetingBox(state);
       if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) this.play.backToLobby();
     }
 
@@ -227,20 +217,6 @@ export class HudScene extends Phaser.Scene {
     const text = `Crew tasks ${done}/${total}${mode === 'meetings' ? ' (updates at meetings)' : ''}`;
     if (this.taskBarText.text !== text) this.taskBarText.setText(text);
     this.taskBarText.setVisible(true);
-  }
-
-  private updateMeetingBox(state: SimState): void {
-    if (state.phase !== 'meeting' || !state.meeting) {
-      this.meetingBox.setVisible(false);
-      return;
-    }
-    const m = state.meeting;
-    const caller = state.units[m.calledBy]?.name ?? 'Someone';
-    const victim = m.bodyOf !== null ? state.units[m.bodyOf]?.name ?? 'someone' : null;
-    const headline = m.reason === 'body' ? `${caller} reported ${victim}'s body` : `${caller} called an emergency meeting`;
-    const text = `${headline}\n\nThe meeting screen (chat and voting) arrives in step 4.\nPress Enter to return to the ship.`;
-    if (this.meetingText.text !== text) this.meetingText.setText(text);
-    this.meetingBox.setVisible(true);
   }
 
   private debugLines(region: string): string {

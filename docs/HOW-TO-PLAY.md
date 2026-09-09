@@ -22,7 +22,7 @@ time, or type one to replay the same game (F3 shows the current seed).
 | E or Space | Use: settings computer, start pad, emergency button. Hold to do a task |
 | R | Report a body you are standing next to |
 | Q | Kill (impostors only, when the cooldown is ready and someone is in reach) |
-| Enter | Leave the meeting placeholder (until step 4) |
+| Enter | In a meeting: focus the chat box, then send |
 | Esc | Back to the lobby (in a match) |
 | Tab (hold) | Show the full map (in a match) |
 | F3 | Debug overlay on/off |
@@ -58,3 +58,12 @@ report bodies they see; impostor bots kill when nobody could be watching.
 ## Ghosts
 When you die you become a ghost: you can still walk around and finish your tasks, which still
 count for the crew. Only other ghosts can see you.
+
+## Meetings
+A report or the emergency button opens the meeting. Everyone alive appears as a tile. First comes
+discussion (chat only), then voting: click a tile, then Confirm, or press Skip. You can change your
+vote until the timer ends; voting ends early when everyone has voted. The most votes is ejected;
+a tie, or more skips than votes for anyone, ejects nobody. With "confirm ejects" on you are told
+whether the ejected player was an impostor. Type in the box on the right and press Enter to talk.
+Dead players can read but not talk or vote. Right now bots only make small talk and vote at random;
+Phase 3 gives them memory and opinions.

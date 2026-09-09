@@ -17,6 +17,7 @@ import { NavGraphView } from './NavGraphView';
 import { UnitView } from './UnitView';
 import { VisionView } from './VisionView';
 import { HudScene } from '../ui/HudScene';
+import { MeetingPanel } from '../ui/MeetingPanel';
 import { SettingsPanel } from '../ui/SettingsPanel';
 import { saveStoredSettings } from '../ui/settingsStore';
 
@@ -70,6 +71,7 @@ export class PlayScene extends Phaser.Scene {
   private debugGraphics!: Phaser.GameObjects.Graphics;
   private debugOn = false;
   private settingsPanel: SettingsPanel | null = null;
+  private meetingPanel: MeetingPanel | null = null;
   /** What the keys would do right now, for the HUD. */
   private prompts_: string[] = [];
   /** Input read once per frame; "just pressed" keys can only be read once. */
@@ -144,10 +146,14 @@ export class PlayScene extends Phaser.Scene {
     if (this.mode === 'lobby') {
       const matchMap = this.data_.maps[this.data_.matchMapId] ?? this.map;
       this.settingsPanel = new SettingsPanel({ playerCap: matchMap.playerCap, impostorMax: matchMap.impostors.max });
+    } else {
+      this.meetingPanel = new MeetingPanel(gameConfig.tickRate);
     }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.settingsPanel?.destroy();
       this.settingsPanel = null;
+      this.meetingPanel?.destroy();
+      this.meetingPanel = null;
       this.visionView.destroy();
       this.scene.stop(HudScene.KEY);
     });
@@ -161,6 +167,12 @@ export class PlayScene extends Phaser.Scene {
     // If the tab was hidden and a huge delta arrives, cap it so we do not spiral trying to catch up.
     this.accumulatorMs += Math.min(deltaMs, this.tickMs * 5);
     let input = panelOpen ? NO_INPUT : this.readInput();
+    if (this.meetingPanel?.isOpen) {
+      // During a meeting the panel owns the keyboard; only its votes and chat lines reach the simulation.
+      const actions = this.meetingPanel.takeActions();
+      input = { dx: 0, dy: 0, voteFor: actions.voteFor, chatText: actions.chatText };
+      if (this.frameInput.continueKey) this.meetingPanel.focusChat();
+    }
     this.frameInput = input;
     while (this.accumulatorMs >= this.tickMs) {
       for (let i = 0; i < this.sim.units.length; i++) {
@@ -175,9 +187,11 @@ export class PlayScene extends Phaser.Scene {
       this.reactToEvents();
       // A key press counts once per frame, even when several ticks run in one frame.
       input = { dx: input.dx, dy: input.dy, useHeld: input.useHeld };
+      this.syncMeetingPanel();
       this.accumulatorMs -= this.tickMs;
     }
     if (!panelOpen) this.handleUse();
+    this.syncMeetingPanel();
     this.computePrompts();
 
     // Rendering interpolates between the last two ticks for smooth motion.
@@ -224,6 +238,10 @@ export class PlayScene extends Phaser.Scene {
     return this.settingsPanel?.isOpen ?? false;
   }
 
+  get isMeetingOpen(): boolean {
+    return this.meetingPanel?.isOpen ?? false;
+  }
+
   /** F3: walking graph, bot paths and sight circles over the floor. */
   setDebugVisible(visible: boolean): void {
     this.debugOn = visible;
@@ -235,6 +253,29 @@ export class PlayScene extends Phaser.Scene {
   /** Returns to the lobby (used by the HUD; a proper end screen arrives in step 5). */
   backToLobby(): void {
     this.scene.restart({ ...this.data_, mode: 'lobby', settings: this.settings, seedText: this.seedText, seed: undefined, keepPlayerAt: undefined } satisfies PlaySceneData);
+  }
+
+  /** Opens the meeting screen when a meeting starts, refreshes it, and closes it when play resumes. */
+  private syncMeetingPanel(): void {
+    const panel = this.meetingPanel;
+    if (!panel) return;
+    const keyboard = this.input.keyboard;
+    if (this.sim.phase === 'meeting') {
+      if (!panel.isOpen) {
+        panel.open(this.sim);
+        if (keyboard) {
+          keyboard.enabled = false;
+          keyboard.resetKeys();
+        }
+      }
+      panel.update(this.sim);
+    } else if (panel.isOpen) {
+      panel.close();
+      if (keyboard) {
+        keyboard.enabled = true;
+        keyboard.resetKeys();
+      }
+    }
   }
 
   private colourOf(colorId: string): number {
@@ -297,7 +338,7 @@ export class PlayScene extends Phaser.Scene {
     if (this.mode === 'lobby') {
       const near = this.nearestUsableObject(player.x, player.y);
       if (near) prompts.push(near.type === 'computer' ? 'E: use the settings computer' : near.type === 'start' ? 'E: start the game' : `E: use ${near.type}`);
-    } else if (this.sim.phase === 'play') {
+    } else if (this.sim.phase === 'play' && !this.isMeetingOpen) {
       if (player.alive) {
         if (player.role === 'impostor') {
           const target = findKillTarget(this.sim, player, gameConfig);
@@ -411,13 +452,13 @@ export class PlayScene extends Phaser.Scene {
     const usePressed = Phaser.Input.Keyboard.JustDown(k.E) || Phaser.Input.Keyboard.JustDown(k.SPACE);
     const killPressed = Phaser.Input.Keyboard.JustDown(k.Q);
     const reportPressed = Phaser.Input.Keyboard.JustDown(k.R);
-    const continuePressed = Phaser.Input.Keyboard.JustDown(k.ENTER);
+    const continueKey = Phaser.Input.Keyboard.JustDown(k.ENTER);
     // Holding a task key means standing still: you cannot walk and work at once.
     if (useHeld && this.mode === 'game' && reachableStage(playerOf(this.sim), this.map, gameConfig)) {
       dx = 0;
       dy = 0;
     }
-    return { dx, dy, useHeld, usePressed, killPressed, reportPressed, continuePressed };
+    return { dx, dy, useHeld, usePressed, killPressed, reportPressed, continueKey };
   }
 }
 

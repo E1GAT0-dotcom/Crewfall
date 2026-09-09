@@ -12,7 +12,8 @@
     "vision.lobbyZoom: fixed camera zoom in the lobby (view distance does not apply there).",
     "stars.layers: the star background. speed is pixels per second downward; bigger scale = closer stars.",
     "rules: fixed distances and timers from SPEC 13. Ranges in tiles, times in seconds.",
-    "bots.report.delaySec: how long a crew bot takes to report a body it has reached. bots.kill.hesitateSec: pause before an impostor bot kills."
+    "bots.report.delaySec: how long a crew bot takes to report a body it has reached. bots.kill.hesitateSec: pause before an impostor bot kills.",
+    "meeting: resultSec is how long the ejection result stays up. botChat paces bot messages (SPEC 9.9). botVote.skipChance is how often a Phase 2 bot skips."
   ],
   "tickRate": 30,
   "canvas": {
@@ -122,5 +123,30 @@
     "useRangeTiles": 1.6,
     "taskRangeTiles": 1.3,
     "playerTaskSpeed": 1
+  },
+  "meeting": {
+    "resultSec": 5,
+    "botChat": {
+      "gapSec": [
+        1.5,
+        3
+      ],
+      "replyDelaySec": [
+        2,
+        5
+      ],
+      "maxMessagesPerBot": 3,
+      "firstMessageDelaySec": [
+        0.8,
+        2.5
+      ]
+    },
+    "botVote": {
+      "skipChance": 0.4,
+      "voteWindow": [
+        0.1,
+        0.9
+      ]
+    }
   }
 }

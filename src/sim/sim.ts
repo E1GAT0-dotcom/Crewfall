@@ -9,7 +9,8 @@
 import namesJson from '../../config/names.json';
 import colorsJson from '../../config/colors.json';
 import { createBotState, stepBot, type BotState } from '../bots/brain';
-import { endMeeting, findKillTarget, tryCallMeeting, tryKill, tryReport, updatePlayerTask, type Body, type MeetingState, type SimEvent } from './actions';
+import { findKillTarget, tryCallMeeting, tryKill, tryReport, updatePlayerTask, type Body, type SimEvent } from './actions';
+import { stepMeeting, type MeetingState, type Vote } from './meeting';
 import type { GameMap } from './map';
 import { moveWithCollision, normalizeDirection, type Vec2 } from './movement';
 import { Rng } from './rng';
@@ -64,6 +65,16 @@ export interface SimConfig {
     readonly report: { readonly delaySec: readonly number[] };
     readonly kill: { readonly hesitateSec: readonly number[]; readonly repathSec: number };
   };
+  readonly meeting: {
+    readonly resultSec: number;
+    readonly botChat: {
+      readonly gapSec: readonly number[];
+      readonly replyDelaySec: readonly number[];
+      readonly maxMessagesPerBot: number;
+      readonly firstMessageDelaySec: readonly number[];
+    };
+    readonly botVote: { readonly skipChance: number; readonly voteWindow: readonly number[] };
+  };
 }
 
 /** What the player is doing this tick. Axes are -1, 0 or 1; the rest are key states. */
@@ -76,8 +87,12 @@ export interface PlayerInput {
   readonly usePressed?: boolean;
   readonly killPressed?: boolean;
   readonly reportPressed?: boolean;
-  /** Temporary until step 4: leaves the meeting placeholder. */
-  readonly continuePressed?: boolean;
+  /** Meeting: a vote to cast this tick (a unit id or 'skip'). */
+  readonly voteFor?: Vote;
+  /** Meeting: a chat line to send this tick. */
+  readonly chatText?: string;
+  /** Enter was pressed this frame (the scene uses it to focus the chat box). Ignored by the simulation. */
+  readonly continueKey?: boolean;
 }
 
 export const NO_INPUT: PlayerInput = { dx: 0, dy: 0 };
@@ -89,6 +104,8 @@ export interface Unit {
   readonly role: Role;
   readonly isPlayer: boolean;
   alive: boolean;
+  /** True if voted out at a meeting (no body is left). */
+  ejected: boolean;
   /** Tick of death, or null while alive. */
   deathTick: number | null;
   /** Centre of the unit in world pixels. */
@@ -171,6 +188,7 @@ export function createGame(map: GameMap, settings: GameSettings, seed: number, c
       role,
       isPlayer: id === PLAYER_ID,
       alive: true,
+      ejected: false,
       deathTick: null,
       x: spawn[0] * map.tileSize + half,
       y: spawn[1] * map.tileSize + half,
@@ -208,8 +226,7 @@ export function stepSim(state: SimState, input: PlayerInput, map: GameMap, confi
   state.events = [];
 
   if (state.phase === 'meeting') {
-    // Step 4 replaces this with discussion, voting and the result. For now the meeting waits for Enter.
-    if (input.continuePressed) endMeeting(state, map, config);
+    stepMeeting(state, input, map, config);
     return state;
   }
 

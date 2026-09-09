@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import config from '../config/game.json';
-import { bodiesInReach, canKill, endMeeting, findKillTarget, reachableStage, stageDurationTicks, tryCallMeeting, tryKill, tryReport, updatePlayerTask } from '../src/sim/actions';
+import { bodiesInReach, canKill, findKillTarget, reachableStage, stageDurationTicks, tryCallMeeting, tryKill, tryReport, updatePlayerTask } from '../src/sim/actions';
+import { endMeeting } from '../src/sim/meeting';
 import { loadMap } from '../src/sim/map';
 import { defaultSettings, KILL_DISTANCE_TILES } from '../src/sim/settings';
 import { createGame, NO_INPUT, player, stepSim, type SimState, type Unit } from '../src/sim/sim';
@@ -101,7 +102,7 @@ describe('reporting and the emergency button', () => {
     expect(bodiesInReach(s, reporter, config).length).toBe(1);
     expect(tryReport(s, reporter, map, config)).toBe(true);
     expect(s.phase).toBe('meeting');
-    expect(s.meeting).toEqual({ calledBy: reporter.id, reason: 'body', bodyOf: crew.id, startedTick: s.tick });
+    expect(s.meeting).toMatchObject({ calledBy: reporter.id, reason: 'body', bodyOf: crew.id, startedTick: s.tick, stage: 'discussion' });
     expect(s.bodies).toEqual([]);
     expect(s.meetingsHeld).toBe(1);
     // Nothing moves during a meeting.
@@ -137,15 +138,14 @@ describe('reporting and the emergency button', () => {
     expect(tryCallMeeting(s, p, map, config)).toBe(false); // none left
   });
 
-  it('Enter leaves the temporary meeting placeholder (until step 4)', () => {
+  it('pressing E at the button in play starts a meeting', () => {
     const s = createGame(map, defaultSettings(), 4, config);
     const p = player(s);
     p.x = (map.button![0] + 1) * TS + TS / 2;
     p.y = map.button![1] * TS + TS / 2;
     stepSim(s, { ...NO_INPUT, usePressed: true }, map, config);
     expect(s.phase).toBe('meeting');
-    stepSim(s, { ...NO_INPUT, continuePressed: true }, map, config);
-    expect(s.phase).toBe('play');
+    expect(s.meeting?.reason).toBe('button');
   });
 });
 
