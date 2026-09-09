@@ -1,0 +1,19 @@
+{
+  "_help": [
+    "The six bot personalities (SPEC 9.8), assigned at random per game. Each is a set of dials.",
+    "messagesPerMeeting: how much they talk. followMajority: 0-1 chance to vote with the crowd when their own suspect is below their threshold.",
+    "accuseThreshold: suspicion needed to accuse in chat. voteThreshold: suspicion needed to vote for their top suspect.",
+    "reportDelaySec: pause before reporting a body. lookAroundFirst: turn and look before reporting (records more sightings).",
+    "buddyChance: 0-1 tendency to walk with someone. whenAccused: how they answer an accusation (used by the voice in step 4).",
+    "playerAccusationScale: how much the player's accusations move them. killHesitationScale: impostor pause before a kill (1 = normal).",
+    "earlyMeetingCaution: skip voting in the first meeting unless suspicion is at least this high (analysts)."
+  ],
+  "personalities": [
+    { "id": "aggressive", "name": "Aggressive", "messagesPerMeeting": 5, "followMajority": 0.2, "accuseThreshold": 35, "voteThreshold": 30, "reportDelaySec": 0, "lookAroundFirst": false, "buddyChance": 0.1, "whenAccused": "counter", "playerAccusationScale": 0.8, "killHesitationScale": 0.5, "earlyMeetingCaution": 0 },
+    { "id": "analyst", "name": "Analyst", "messagesPerMeeting": 3, "followMajority": 0.2, "accuseThreshold": 55, "voteThreshold": 45, "reportDelaySec": 1, "lookAroundFirst": true, "buddyChance": 0.4, "whenAccused": "route", "playerAccusationScale": 0.8, "killHesitationScale": 1.2, "earlyMeetingCaution": 60 },
+    { "id": "follower", "name": "Follower", "messagesPerMeeting": 3, "followMajority": 0.85, "accuseThreshold": 60, "voteThreshold": 45, "reportDelaySec": 2, "lookAroundFirst": false, "buddyChance": 0.75, "whenAccused": "defer", "playerAccusationScale": 1.3, "killHesitationScale": 1.0, "earlyMeetingCaution": 0 },
+    { "id": "quiet", "name": "Quiet", "messagesPerMeeting": 2, "followMajority": 0.5, "accuseThreshold": 65, "voteThreshold": 50, "reportDelaySec": 1, "lookAroundFirst": true, "buddyChance": 0.4, "whenAccused": "short", "playerAccusationScale": 1.0, "killHesitationScale": 1.3, "earlyMeetingCaution": 0 },
+    { "id": "nervous", "name": "Nervous", "messagesPerMeeting": 5, "followMajority": 0.8, "accuseThreshold": 40, "voteThreshold": 35, "reportDelaySec": 3, "lookAroundFirst": false, "buddyChance": 0.75, "whenAccused": "overexplain", "playerAccusationScale": 1.3, "killHesitationScale": 1.5, "earlyMeetingCaution": 0 },
+    { "id": "joker", "name": "Joker", "messagesPerMeeting": 3, "followMajority": 0.5, "accuseThreshold": 50, "voteThreshold": 40, "reportDelaySec": 1, "lookAroundFirst": false, "buddyChance": 0.1, "whenAccused": "joke", "playerAccusationScale": 1.0, "killHesitationScale": 0.8, "earlyMeetingCaution": 0 }
+  ]
+}

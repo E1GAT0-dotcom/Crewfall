@@ -256,3 +256,30 @@ lowers suspicion of someone who really was beside the bot, so it never invents g
 ## 2026-09-09 — Bots can be frozen for tests
 `BotState.frozen` stops a bot deciding and moving while it keeps seeing and remembering. Scripted
 scenario tests use it so bots do not report bodies or wander mid-scene. Not used in play.
+
+## 2026-09-09 — Personalities and difficulty are data
+`config/personalities.json` holds the six SPEC 9.8 personalities as dials (talkativeness,
+follow-the-crowd, accuse and vote thresholds, report delay, look-around, buddying, reaction when
+accused, how much the player's word counts, kill hesitation, first-meeting caution). They are
+dealt out per game so every lobby has a mix. `config/brains.json` holds the SPEC 9.12 difficulty
+rows (memory, faking, kill caution, cross-checking, player targeting, self-report chance).
+
+## 2026-09-09 — Vote thresholds per personality
+SPEC 9.7 gives defaults of 50 to accuse and 40 to vote, "personality-adjusted". Each personality
+now carries both: aggressive 35/30, nervous 40/35, joker 50/40, analyst 55/45, follower 60/45,
+quiet 65/50. Analysts also skip in the first meeting unless someone is at 60 or more.
+
+## 2026-09-09 — Impostor lies come from the real route
+A bot logs its own rooms. When an impostor gives an alibi for a window in which it killed, it
+swaps the kill room for the room it really passed just before or after (never a corridor), and it
+remembers the lie per window so it never changes its story. Crew alibis name where they really
+were at the moment of the death.
+
+## 2026-09-09 — "With me / alone" and impostor kill caution by difficulty
+Easy impostors strike only when the victim is the only person they can see at all; normal and hard
+strike when nobody could see the spot; hard also self-reports a quarter of its kills and will not
+linger alone with the player while its kill is on cooldown.
+
+## 2026-09-09 — Fear walks toward company
+A crew bot alone within six tiles of its top suspect (at 40 or more) heads for the room where it
+last saw the most people, or the room farthest from the suspect, then cools down for 20 s.

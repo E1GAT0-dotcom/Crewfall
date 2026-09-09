@@ -1,34 +1,47 @@
-// Bot brain, Phase 2 version. Pure TypeScript, no Phaser.
+// Bot brain. Pure TypeScript, no Phaser.
 //
-// The full architecture (SPEC 9.2) is Perception -> Memory -> Social model -> Decision -> Voice.
-// Phase 2 fills Perception (what bodies and units are in sight) and a simple Decision layer:
-//   crew:     do the next task; report a body you have seen; wander when done.
-//   impostor: fake tasks; when the cooldown is ready and someone is alone, hunt and kill them.
-// Phase 3 adds memory, suspicion, and real voice on top of this same state shape.
+// Architecture (SPEC 9.2): Perception (memory.ts) -> Memory -> Social model (suspicion.ts) ->
+// Decision (this file, decisions.ts, voting.ts) -> Voice (meeting.ts + chat templates).
+// This file is the decision layer for movement and actions:
+//   crew:     do tasks; buddy up sometimes; report bodies (with a personality delay and a look
+//             around); walk away from a lone top suspect; press the button on certain evidence.
+//   impostor: fake tasks (never visual ones unless sloppy); pick targets that are alone and
+//             unwatched by the difficulty's rule; hesitate by personality; walk off after a kill;
+//             on hard, sometimes self-report and avoid being alone with the player.
 //
 // "Feel" rules (Greg, 2026-09-07): bots must not walk like robots. So each bot has its own walking
 // speed with a little wobble, rounds corners instead of following tile centres exactly, drifts
 // sideways a bit, pauses now and then (sometimes looking around), hesitates after finishing a task,
 // leaves spawn at its own time, and occasionally wanders off to look at a room before working.
-// Task choice is weighted by distance rather than strictly nearest, so bots do not all pile into
-// the same room. Every random choice comes from the game's seeded Rng, so it all replays exactly.
+// Task choice is weighted by distance rather than strictly nearest. Every random choice comes from
+// the game's seeded Rng, so it all replays exactly.
 
-import { bodiesInReach, canKill, distance, tryKill, tryReport, type Body } from '../sim/actions';
+import brainsJson from '../../config/brains.json';
+import { bodiesInReach, canKill, distance, nearButton, tryCallMeeting, tryKill, tryReport, type Body } from '../sim/actions';
 import type { GameMap, TilePos } from '../sim/map';
 import { findPath } from '../sim/pathfinding';
 import type { Rng } from '../sim/rng';
 import { completeStage, moveUnit, unitSpeedPxPerTick, unitTile, type SimConfig, type SimState, type Unit } from '../sim/sim';
-import { nextStage, TASK_LABELS, type Task } from '../sim/tasks';
+import { nextStage, TASK_LABELS, VISUAL_TASKS, type Task } from '../sim/tasks';
 import { canSee, visionRadiusPx } from '../sim/vision';
+import type { Alibi } from './decisions';
+import { accusersOf } from './decisions';
 import { createMemory, type BotMemory } from './memory';
-import { createSocial, type SocialModel } from './suspicion';
+import { difficultyTable, personality } from './personality';
+import { createSocial, suspicionOf, topSuspect, type SocialModel } from './suspicion';
+
+const CREW = brainsJson.crew;
+const IMPOSTOR = brainsJson.impostor;
 
 export type BotGoal =
   | { kind: 'idle' }
   | { kind: 'task'; taskId: string; spotId: string; label: string }
   | { kind: 'wander'; target: TilePos; label: string }
   | { kind: 'report'; bodyOf: number; label: string }
-  | { kind: 'hunt'; targetId: number; label: string };
+  | { kind: 'hunt'; targetId: number; label: string }
+  | { kind: 'follow'; targetId: number; untilTick: number; label: string }
+  | { kind: 'flee'; fromId: number; target: TilePos; label: string }
+  | { kind: 'button'; label: string };
 
 /** Per-bot movement character, rolled once per game. */
 export interface BotQuirks {
@@ -39,10 +52,14 @@ export interface BotQuirks {
 export interface BotState {
   readonly unitId: number;
   readonly quirks: BotQuirks;
+  /** Personality id from config/personalities.json (SPEC 9.8). */
+  readonly personality: string;
   /** What this bot has seen and heard (SPEC 9.3, 9.4). */
   readonly memory: BotMemory;
   /** Who this bot suspects and trusts, and why (SPEC 9.7). */
   readonly social: SocialModel;
+  /** Alibis already told, by claim window, so the story never changes (SPEC 9.6 hard mode). */
+  readonly alibis: Record<string, Alibi>;
   /** Tests and the debug tools can freeze a bot in place; it still sees and remembers. */
   frozen: boolean;
   goal: BotGoal;
@@ -57,8 +74,15 @@ export interface BotState {
   nextPauseTick: number;
   /** Ticks left before an action (report, kill) is carried out. */
   actionTicks: number;
-  /** Tick at which a hunt path is next recomputed. */
+  /** Tick at which a hunt or follow path is next recomputed. */
   repathTick: number;
+  /** Tick before which the bot will not buddy up again / flee again. */
+  buddyCooldownUntil: number;
+  fleeCooldownUntil: number;
+  /** Set when a hard impostor has decided to report its own kill. */
+  selfReportTick: number;
+  /** True once this bot changed its vote in the current meeting. */
+  voteChanged: boolean;
   /** Current heading (unit vector), smoothed so turns are rounded. */
   headX: number;
   headY: number;
@@ -73,15 +97,17 @@ export interface BotState {
   lastY: number;
 }
 
-export function createBotState(unitId: number, rng: Rng, config: SimConfig): BotState {
+export function createBotState(unitId: number, rng: Rng, config: SimConfig, personalityId = 'follower'): BotState {
   const feel = config.bots.feel;
   const [s0, s1] = pair(feel.speedRange, 0.8, 1.0);
   const [d0, d1] = pair(feel.startDelaySec, 0.5, 4);
   return {
     unitId,
     quirks: { speed: rng.range(s0, s1) },
+    personality: personalityId,
     memory: createMemory(),
     social: createSocial(),
+    alibis: {},
     frozen: false,
     goal: { kind: 'idle' },
     path: [],
@@ -91,6 +117,10 @@ export function createBotState(unitId: number, rng: Rng, config: SimConfig): Bot
     nextPauseTick: 0,
     actionTicks: 0,
     repathTick: 0,
+    buddyCooldownUntil: 0,
+    fleeCooldownUntil: 0,
+    selfReportTick: 0,
+    voteChanged: false,
     headX: 0,
     headY: 0,
     drift: 0,
@@ -117,10 +147,17 @@ export function resetBotGoal(bot: BotState): void {
 export function stepBot(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
   if (state.phase !== 'play' || bot.frozen) return;
 
-  // Perception first: things worth dropping the current goal for.
+  // Things worth dropping the current goal for.
   if (unit.alive) {
-    if (unit.role === 'crew' && bot.goal.kind !== 'report') noticeBodies(bot, unit, state, map, config);
-    if (unit.role === 'impostor' && bot.goal.kind !== 'hunt' && unit.killCooldownTicks <= 0) considerHunting(bot, unit, state, map, config);
+    if (unit.role === 'crew') {
+      if (bot.goal.kind !== 'report') noticeBodies(bot, unit, state, map, config);
+      if (bot.goal.kind !== 'report' && bot.goal.kind !== 'button') considerButton(bot, unit, state, map, config);
+      if (bot.goal.kind !== 'report' && bot.goal.kind !== 'button' && bot.goal.kind !== 'flee') considerFear(bot, unit, state, map, config);
+    } else {
+      if (bot.selfReportTick > 0 && state.tick >= bot.selfReportTick && bot.goal.kind !== 'report') selfReport(bot, unit, state, map, config);
+      if (bot.goal.kind !== 'hunt' && bot.goal.kind !== 'report' && unit.killCooldownTicks <= 0) considerHunting(bot, unit, state, map, config);
+      if (bot.goal.kind !== 'hunt' && bot.goal.kind !== 'report' && bot.goal.kind !== 'flee') considerAvoidingPlayer(bot, unit, state, map, config);
+    }
   }
 
   if (bot.waitTicks > 0) {
@@ -132,27 +169,36 @@ export function stepBot(bot: BotState, unit: Unit, state: SimState, map: GameMap
   if (bot.pauseTicks > 0) {
     bot.pauseTicks--;
     unit.moving = false;
+    if (bot.goal.kind === 'report' && personality(bot.personality).lookAroundFirst && bot.pauseTicks % 15 === 0) unit.facing = unit.facing > 0 ? -1 : 1;
     return;
   }
-  if (bot.goal.kind === 'hunt') {
-    stepHunt(bot, unit, state, map, config);
-    return;
-  }
-  if (bot.goal.kind === 'report') {
-    stepReport(bot, unit, state, map, config);
-    return;
-  }
-  if (bot.goal.kind === 'idle') {
-    chooseGoal(bot, unit, state, map, config);
-    if (bot.goal.kind === 'idle') {
-      unit.moving = false;
+  switch (bot.goal.kind) {
+    case 'hunt':
+      stepHunt(bot, unit, state, map, config);
       return;
-    }
+    case 'report':
+      stepReport(bot, unit, state, map, config);
+      return;
+    case 'follow':
+      stepFollow(bot, unit, state, map, config);
+      return;
+    case 'button':
+      stepButton(bot, unit, state, map, config);
+      return;
+    case 'idle':
+      chooseGoal(bot, unit, state, map, config);
+      if (bot.goal.kind === 'idle') {
+        unit.moving = false;
+        return;
+      }
+      break;
+    default:
+      break;
   }
   followPath(bot, unit, state, map, config);
 }
 
-// ---------- perception ----------
+// ---------- perception helpers ----------
 
 /** Everything this bot can see is within its own sight radius (same rule as the player). */
 export function botSightRadius(unit: Unit, state: SimState, config: SimConfig): number {
@@ -164,7 +210,14 @@ function visibleBodies(unit: Unit, state: SimState, map: GameMap, config: SimCon
   return state.bodies.filter((b) => canSee(map, unit.x, unit.y, radius, b.x, b.y));
 }
 
-/** A crew bot that sees a body goes to report it. */
+function visibleUnits(unit: Unit, state: SimState, map: GameMap, config: SimConfig): Unit[] {
+  const radius = botSightRadius(unit, state, config);
+  return state.units.filter((u) => u.id !== unit.id && u.alive && canSee(map, unit.x, unit.y, radius, u.x, u.y));
+}
+
+// ---------- crew ----------
+
+/** A crew bot that sees a body goes to report it, after its personality's delay. */
 function noticeBodies(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
   const bodies = visibleBodies(unit, state, map, config);
   if (bodies.length === 0) return;
@@ -172,11 +225,12 @@ function noticeBodies(bot: BotState, unit: Unit, state: SimState, map: GameMap, 
   const body = bodies[0] as Body;
   const victim = state.units[body.unitId];
   if (setPath(bot, unit, map, [Math.floor(body.x / map.tileSize), Math.floor(body.y / map.tileSize)])) {
+    const p = personality(bot.personality);
     bot.goal = { kind: 'report', bodyOf: body.unitId, label: `report ${victim?.name ?? 'a'}'s body` };
     bot.waitTicks = 0;
-    bot.pauseTicks = 0;
-    const [d0, d1] = pair(config.bots.report.delaySec, 0.5, 2);
-    bot.actionTicks = Math.round(state.rng.range(d0, d1) * config.tickRate);
+    // A look around first (some personalities) happens before walking; the delay at the body is the personality's.
+    bot.pauseTicks = p.lookAroundFirst ? Math.round(state.rng.range(0.8, 1.6) * config.tickRate) : 0;
+    bot.actionTicks = Math.round((p.reportDelaySec + state.rng.range(0, 0.5)) * config.tickRate);
   }
 }
 
@@ -199,9 +253,122 @@ function stepReport(bot: BotState, unit: Unit, state: SimState, map: GameMap, co
   followPath(bot, unit, state, map, config);
 }
 
+/** Certain evidence (a witnessed kill), no body in sight, a meeting left: go press the button. */
+function considerButton(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
+  if (!CREW.button.walkIfCertain || unit.meetingsLeft <= 0 || !map.button) return;
+  const certainTarget = state.units.find((u) => u.alive && u.id !== unit.id && bot.social.certain[u.id]);
+  if (!certainTarget) return;
+  if (visibleBodies(unit, state, map, config).length > 0) return;
+  if (setPath(bot, unit, map, buttonStandTile(map))) {
+    bot.goal = { kind: 'button', label: `call a meeting about ${certainTarget.name}` };
+    bot.waitTicks = 0;
+    bot.pauseTicks = 0;
+  }
+}
+
+function stepButton(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
+  if (nearButton(unit, map, config)) {
+    unit.moving = false;
+    if (!tryCallMeeting(state, unit, map, config)) resetBotGoal(bot);
+    return;
+  }
+  if (bot.pathIndex >= bot.path.length) {
+    // Arrived but not close enough (crowded); nudge once more or give up.
+    if (!setPath(bot, unit, map, buttonStandTile(map))) resetBotGoal(bot);
+    return;
+  }
+  followPath(bot, unit, state, map, config);
+}
+
+function buttonStandTile(map: GameMap): TilePos {
+  const [bx, by] = map.button as TilePos;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    if (map.isWalkable(bx + dx, by + dy)) return [bx + dx, by + dy];
+  }
+  return [bx, by];
+}
+
+/** Alone with my top suspect: walk toward company. */
+function considerFear(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
+  if (state.tick < bot.fleeCooldownUntil) return;
+  const top = topSuspect(bot.social, state, unit.id);
+  if (!top || top.score < CREW.fear.minSuspicion) return;
+  const suspect = state.units[top.id];
+  if (!suspect || !suspect.alive) return;
+  const range = CREW.fear.rangeTiles * map.tileSize;
+  if (distance(unit, suspect) > range) return;
+  const others = visibleUnits(unit, state, map, config).filter((u) => u.id !== suspect.id && distance(unit, u) <= range);
+  if (others.length > 0) return;
+  // Company: the room where I last saw the most people, other than here.
+  const here = map.regionAt(...unitTile(unit, map))?.name;
+  const counts = new Map<string, number>();
+  for (const s of Object.values(bot.memory.open)) {
+    if (s.subjectId === suspect.id) continue;
+    const room = s.rooms[s.rooms.length - 1]!.room;
+    if (room !== here && !room.startsWith('Corridor')) counts.set(room, (counts.get(room) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  let bestCount = 0;
+  for (const [room, count] of counts) {
+    if (count > bestCount) {
+      best = room;
+      bestCount = count;
+    }
+  }
+  const target = best ? map.regionByName(best) : null;
+  const dest = target?.rect ? roomTile(target.rect, state.rng, map) : farthestRoomTile(suspect, state.rng, map);
+  if (dest && setPath(bot, unit, map, dest)) {
+    bot.goal = { kind: 'flee', fromId: suspect.id, target: dest, label: `getting away from ${suspect.name} (${Math.round(top.score)}) toward ${best ?? 'somewhere busier'}` };
+    bot.fleeCooldownUntil = state.tick + Math.round(CREW.fear.cooldownSec * config.tickRate);
+    bot.waitTicks = 0;
+    bot.pauseTicks = 0;
+  }
+}
+
+/** Buddying (SPEC 9.5): sometimes tag along with someone in sight for a while. */
+function considerBuddy(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): boolean {
+  const p = personality(bot.personality);
+  if (state.tick < bot.buddyCooldownUntil || !state.rng.chance(p.buddyChance * 0.5)) return false;
+  const candidates = visibleUnits(unit, state, map, config).filter((u) => suspicionOf(bot.social, u.id) < p.voteThreshold);
+  if (candidates.length === 0) return false;
+  candidates.sort((a, b) => distance(unit, a) - distance(unit, b));
+  const buddy = candidates[0] as Unit;
+  if (!setPath(bot, unit, map, unitTile(buddy, map))) return false;
+  const [d0, d1] = pair(CREW.buddy.durationSec, 12, 30);
+  bot.goal = { kind: 'follow', targetId: buddy.id, untilTick: state.tick + Math.round(state.rng.range(d0, d1) * config.tickRate), label: `sticking with ${buddy.name}` };
+  bot.repathTick = state.tick + Math.round(CREW.buddy.repathSec * config.tickRate);
+  scheduleNextPause(bot, state, config);
+  return true;
+}
+
+function stepFollow(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
+  const goal = bot.goal as { kind: 'follow'; targetId: number; untilTick: number };
+  const buddy = state.units[goal.targetId];
+  const p = personality(bot.personality);
+  if (!buddy || !buddy.alive || state.tick >= goal.untilTick || suspicionOf(bot.social, buddy.id) >= p.voteThreshold) {
+    const [c0, c1] = pair(CREW.buddy.cooldownSec, 10, 25);
+    bot.buddyCooldownUntil = state.tick + Math.round(state.rng.range(c0, c1) * config.tickRate);
+    resetBotGoal(bot);
+    return;
+  }
+  if (distance(unit, buddy) <= CREW.buddy.stayWithinTiles * map.tileSize) {
+    unit.moving = false;
+    bot.path = [];
+    bot.pathIndex = 0;
+    return;
+  }
+  if (state.tick >= bot.repathTick || bot.pathIndex >= bot.path.length) {
+    setPath(bot, unit, map, unitTile(buddy, map));
+    bot.repathTick = state.tick + Math.round(CREW.buddy.repathSec * config.tickRate);
+  }
+  followPath(bot, unit, state, map, config);
+}
+
+// ---------- impostor ----------
+
 /**
  * Who could see a kill at the target's spot: every other living unit within its own sight radius.
- * Phase 2 rule: an impostor bot only kills when nobody could see it (SPEC 9.6).
+ * An impostor bot only kills when nobody could see it (SPEC 9.6).
  */
 export function witnessesOf(state: SimState, target: Unit, killer: Unit, map: GameMap, config: SimConfig): Unit[] {
   return state.units.filter(
@@ -210,26 +377,36 @@ export function witnessesOf(state: SimState, target: Unit, killer: Unit, map: Ga
 }
 
 function considerHunting(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
-  const radius = botSightRadius(unit, state, config);
+  const table = difficultyTable(state.settings.difficulty);
+  const inSight = visibleUnits(unit, state, map, config);
+  // Easy impostors only strike when the target is the only person they can see at all.
+  if (table.killCaution === 'onlyAlone' && inSight.length > 1) return;
+  const player = state.units[0] as Unit;
+  const playerAccusedMe = accusersOf(state, unit.id).some((a) => a.id === player.id);
   let best: Unit | null = null;
-  let bestDist = Infinity;
-  for (const u of state.units) {
-    if (!u.alive || u.role === 'impostor' || u.id === unit.id) continue;
-    if (!canSee(map, unit.x, unit.y, radius, u.x, u.y)) continue;
+  let bestScore = -Infinity;
+  for (const u of inSight) {
+    if (u.role === 'impostor') continue;
     if (witnessesOf(state, u, unit, map, config).length > 0) continue;
-    const d = distance(unit, u);
-    if (d < bestDist) {
+    // Prefer near, alone-for-a-while targets; on hard, the player when the player is onto me.
+    const sighting = bot.memory.open[u.id];
+    let score = -distance(unit, u) / map.tileSize;
+    if (sighting && sighting.aloneTicks > config.tickRate * 3) score += 5;
+    if (u.isPlayer && table.playerTargeting === 'prioritize' && playerAccusedMe) score += 20;
+    if (u.isPlayer && table.playerTargeting === 'random' && state.rng.chance(0.5)) score -= 10;
+    if (score > bestScore) {
       best = u;
-      bestDist = d;
+      bestScore = score;
     }
   }
   if (!best) return;
   if (setPath(bot, unit, map, unitTile(best, map))) {
+    const p = personality(bot.personality);
     bot.goal = { kind: 'hunt', targetId: best.id, label: `hunting ${best.name}` };
     bot.waitTicks = 0;
     bot.pauseTicks = 0;
     const [h0, h1] = pair(config.bots.kill.hesitateSec, 0.3, 1.2);
-    bot.actionTicks = Math.round(state.rng.range(h0, h1) * config.tickRate);
+    bot.actionTicks = Math.round(state.rng.range(h0, h1) * p.killHesitationScale * config.tickRate);
     bot.repathTick = state.tick + Math.round(config.bots.kill.repathSec * config.tickRate);
   }
 }
@@ -237,8 +414,13 @@ function considerHunting(bot: BotState, unit: Unit, state: SimState, map: GameMa
 function stepHunt(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
   const goal = bot.goal as { kind: 'hunt'; targetId: number };
   const target = state.units[goal.targetId];
+  const table = difficultyTable(state.settings.difficulty);
   // Give up if the target died, someone is watching, or the cooldown somehow restarted.
   if (!target || !target.alive || unit.killCooldownTicks > 0 || witnessesOf(state, target, unit, map, config).length > 0) {
+    resetBotGoal(bot);
+    return;
+  }
+  if (table.killCaution === 'onlyAlone' && visibleUnits(unit, state, map, config).length > 1) {
     resetBotGoal(bot);
     return;
   }
@@ -249,8 +431,15 @@ function stepHunt(bot: BotState, unit: Unit, state: SimState, map: GameMap, conf
       return;
     }
     tryKill(state, unit, target, config);
+    bot.memory.myKills.push({ tick: state.tick, victimId: target.id, room: map.regionAt(...unitTile(unit, map))?.name ?? '?' });
     resetBotGoal(bot);
-    // Walk off somewhere else right away rather than standing over the body.
+    // On hard, sometimes report it yourself; otherwise walk off somewhere else right away.
+    if (table.killCaution === 'tracksWitnesses' && state.rng.chance(table.selfReportChance)) {
+      const [d0, d1] = pair(IMPOSTOR.selfReportDelaySec, 3, 8);
+      bot.selfReportTick = state.tick + Math.round(state.rng.range(d0, d1) * config.tickRate);
+      bot.pauseTicks = Math.round(state.rng.range(0.5, 1.5) * config.tickRate);
+      return;
+    }
     chooseGoal(bot, unit, state, map, config, true);
     return;
   }
@@ -261,22 +450,60 @@ function stepHunt(bot: BotState, unit: Unit, state: SimState, map: GameMap, conf
   followPath(bot, unit, state, map, config);
 }
 
+/** A hard impostor "finding" the body it just made. */
+function selfReport(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
+  bot.selfReportTick = 0;
+  const mine = bot.memory.myKills[bot.memory.myKills.length - 1];
+  const body = mine ? state.bodies.find((b) => b.unitId === mine.victimId) : undefined;
+  if (!body) return;
+  if (setPath(bot, unit, map, [Math.floor(body.x / map.tileSize), Math.floor(body.y / map.tileSize)])) {
+    bot.goal = { kind: 'report', bodyOf: body.unitId, label: `"finding" ${state.units[body.unitId]?.name}'s body` };
+    bot.waitTicks = 0;
+    bot.pauseTicks = 0;
+    bot.actionTicks = Math.round(state.rng.range(0.3, 1.0) * config.tickRate);
+  }
+}
+
+/** Hard mode: an impostor does not linger alone with the player, who might be building a case. */
+function considerAvoidingPlayer(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
+  if (!IMPOSTOR.avoidPlayerAloneOnHard || state.settings.difficulty !== 'hard' || state.tick < bot.fleeCooldownUntil) return;
+  if (unit.killCooldownTicks <= 0) return; // with a kill ready, being alone with the player is an opportunity, not a risk
+  const player = state.units[0] as Unit;
+  if (!player.alive) return;
+  const range = CREW.fear.rangeTiles * map.tileSize;
+  if (distance(unit, player) > range) return;
+  const others = visibleUnits(unit, state, map, config).filter((u) => u.id !== player.id && distance(unit, u) <= range);
+  if (others.length > 0) return;
+  const dest = farthestRoomTile(player, state.rng, map);
+  if (dest && setPath(bot, unit, map, dest)) {
+    bot.goal = { kind: 'flee', fromId: player.id, target: dest, label: `not staying alone with ${player.name}` };
+    bot.fleeCooldownUntil = state.tick + Math.round(CREW.fear.cooldownSec * config.tickRate);
+    bot.waitTicks = 0;
+    bot.pauseTicks = 0;
+  }
+}
+
 // ---------- decision: tasks and wandering ----------
 
-/** Picks the next task (nearer is likelier, but not certain) or somewhere to wander. */
+/** Picks the next task (nearer is likelier, but not certain), a buddy, or somewhere to wander. */
 function chooseGoal(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig, forceWander = false): void {
   const feel = config.bots.feel;
   const rng = state.rng;
+  const table = difficultyTable(state.settings.difficulty);
   const candidates: { task: Task; spotId: string; dist: number }[] = [];
   for (const task of unit.tasks) {
     const stage = nextStage(task);
     if (!stage) continue;
+    // Impostors know a visual task would expose them (SPEC 9.6); sloppy ones sometimes fake it anyway.
+    if (unit.role === 'impostor' && VISUAL_TASKS.has(task.type) && !(table.impostorFaking === 'sloppy' && rng.chance(table.fakeVisualTaskChance))) continue;
     const spot = map.tasks.find((t) => t.id === stage.spotId);
     if (!spot) continue;
     const sx = spot.pos[0] * map.tileSize + map.tileSize / 2;
     const sy = spot.pos[1] * map.tileSize + map.tileSize / 2;
     candidates.push({ task, spotId: spot.id, dist: Math.hypot(sx - unit.x, sy - unit.y) });
   }
+
+  if (!forceWander && unit.role === 'crew' && unit.alive && considerBuddy(bot, unit, state, map, config)) return;
 
   // Sometimes go and have a look at a room first, even with work to do.
   const detour = forceWander || (candidates.length > 0 && rng.chance(feel.detourChance));
@@ -293,16 +520,19 @@ function chooseGoal(bot: BotState, unit: Unit, state: SimState, map: GameMap, co
       return;
     }
   }
-  // Wander to a random floor tile in a random room (nearby rooms preferred when detouring).
+  // Wander to a random floor tile in a random room (nearby rooms preferred when detouring; after a
+  // kill, somewhere away from where it happened).
   for (let attempt = 0; attempt < 6; attempt++) {
     const room = rng.pick(map.rooms);
     if (!room.rect) continue;
     const tx = rng.int(room.rect.x, room.rect.x + room.rect.w - 1);
     const ty = rng.int(room.rect.y, room.rect.y + room.rect.h - 1);
     if (!map.isWalkable(tx, ty)) continue;
-    if (detour && Math.hypot(tx * map.tileSize - unit.x, ty * map.tileSize - unit.y) > 20 * map.tileSize) continue;
+    const far = Math.hypot(tx * map.tileSize - unit.x, ty * map.tileSize - unit.y);
+    if (detour && !forceWander && far > 20 * map.tileSize) continue;
+    if (forceWander && far < IMPOSTOR.fleeAfterKillTiles * map.tileSize) continue;
     if (setPath(bot, unit, map, [tx, ty])) {
-      bot.goal = { kind: 'wander', target: [tx, ty], label: (detour ? 'look around ' : 'wander to ') + room.name };
+      bot.goal = { kind: 'wander', target: [tx, ty], label: (forceWander ? 'moving on to ' : detour ? 'look around ' : 'wander to ') + room.name };
       scheduleNextPause(bot, state, config);
       return;
     }
@@ -322,6 +552,32 @@ function setPath(bot: BotState, unit: Unit, map: GameMap, to: TilePos): boolean 
   return true;
 }
 
+function roomTile(rect: { x: number; y: number; w: number; h: number }, rng: Rng, map: GameMap): TilePos | null {
+  for (let i = 0; i < 8; i++) {
+    const tx = rng.int(rect.x, rect.x + rect.w - 1);
+    const ty = rng.int(rect.y, rect.y + rect.h - 1);
+    if (map.isWalkable(tx, ty)) return [tx, ty];
+  }
+  return null;
+}
+
+/** A floor tile in the room farthest from someone. */
+function farthestRoomTile(from: Unit, rng: Rng, map: GameMap): TilePos | null {
+  let best: TilePos | null = null;
+  let bestDist = -1;
+  for (const room of map.rooms) {
+    if (!room.rect) continue;
+    const t = roomTile(room.rect, rng, map);
+    if (!t) continue;
+    const d = Math.hypot(t[0] * map.tileSize - from.x, t[1] * map.tileSize - from.y);
+    if (d > bestDist) {
+      best = t;
+      bestDist = d;
+    }
+  }
+  return best;
+}
+
 // ---------- movement ----------
 
 function followPath(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
@@ -333,9 +589,9 @@ function followPath(bot: BotState, unit: Unit, state: SimState, map: GameMap, co
   const rng = state.rng;
   const ts = map.tileSize;
   const half = ts / 2;
-  const urgent = bot.goal.kind === 'hunt' || bot.goal.kind === 'report';
+  const urgent = bot.goal.kind === 'hunt' || bot.goal.kind === 'report' || bot.goal.kind === 'flee' || bot.goal.kind === 'button';
 
-  // A brief pause now and then, sometimes turning to look around (not while hunting or reporting).
+  // A brief pause now and then, sometimes turning to look around (not while in a hurry).
   if (!urgent && state.tick >= bot.nextPauseTick) {
     const [p0, p1] = pair(feel.pauseSec, 0.3, 1.5);
     bot.pauseTicks = Math.round(rng.range(p0, p1) * config.tickRate);
@@ -428,21 +684,31 @@ function arrive(bot: BotState, unit: Unit, state: SimState, config: SimConfig): 
   unit.moving = false;
   bot.headX = 0;
   bot.headY = 0;
-  if (bot.goal.kind === 'task') {
-    const goal = bot.goal;
-    const task = unit.tasks.find((t) => t.id === goal.taskId);
-    const base = config.tasks.durationSec[task?.type ?? ''] ?? 5;
-    const jitter = 1 + state.rng.range(-config.tasks.botJitter, config.tasks.botJitter);
-    bot.waitTicks = Math.max(1, Math.round(base * jitter * config.tickRate));
-  } else if (bot.goal.kind === 'wander') {
-    const [lo, hi] = pair(config.bots.wanderIdleSec, 2, 5);
-    bot.waitTicks = Math.round(state.rng.range(lo, hi) * config.tickRate);
-  } else if (bot.goal.kind === 'hunt' || bot.goal.kind === 'report') {
-    // Arrived at the last known spot; the hunt/report logic takes it from here next tick.
-    bot.path = [];
-    bot.pathIndex = 0;
-  } else {
-    bot.waitTicks = 1;
+  switch (bot.goal.kind) {
+    case 'task': {
+      const goal = bot.goal;
+      const task = unit.tasks.find((t) => t.id === goal.taskId);
+      const base = config.tasks.durationSec[task?.type ?? ''] ?? 5;
+      const jitter = 1 + state.rng.range(-config.tasks.botJitter, config.tasks.botJitter);
+      bot.waitTicks = Math.max(1, Math.round(base * jitter * config.tickRate));
+      return;
+    }
+    case 'wander':
+    case 'flee': {
+      const [lo, hi] = pair(config.bots.wanderIdleSec, 2, 5);
+      bot.waitTicks = Math.round(state.rng.range(lo, hi) * config.tickRate);
+      return;
+    }
+    case 'hunt':
+    case 'report':
+    case 'follow':
+    case 'button':
+      // Arrived at the last known spot; the goal's own logic takes it from here next tick.
+      bot.path = [];
+      bot.pathIndex = 0;
+      return;
+    default:
+      bot.waitTicks = 1;
   }
 }
 
@@ -487,8 +753,12 @@ export function describeGoal(bot: BotState): string {
     case 'wander':
       return (bot.waitTicks > 0 ? 'loitering after ' : '') + bot.goal.label + paused;
     case 'report':
-      return (bot.actionTicks > 0 && bot.path.length === 0 ? 'about to ' : 'going to ') + bot.goal.label;
+      return (bot.actionTicks > 0 && bot.path.length === 0 ? 'about to ' : 'going to ') + bot.goal.label + paused;
     case 'hunt':
       return bot.goal.label + (bot.actionTicks > 0 && bot.path.length === 0 ? ' (about to strike)' : '');
+    case 'follow':
+    case 'flee':
+    case 'button':
+      return bot.goal.label + paused;
   }
 }

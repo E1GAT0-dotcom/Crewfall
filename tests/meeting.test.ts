@@ -157,7 +157,8 @@ describe('Phase 2 bot voices and votes', () => {
     expect(new Set(texts).size).toBe(texts.length);
     const perBot = new Map<number, number>();
     for (const c of chat) if (c.unitId !== 0) perBot.set(c.unitId, (perBot.get(c.unitId) ?? 0) + 1);
-    for (const n of perBot.values()) expect(n).toBeLessThanOrEqual(config.meeting.botChat.maxMessagesPerBot + 1);
+    // Each bot's cap is its personality's talkativeness (2-5 lines) plus its "voted" line.
+    for (const n of perBot.values()) expect(n).toBeLessThanOrEqual(5 + 1);
   });
 
   it('a bot answers the player within 2-5 seconds', () => {

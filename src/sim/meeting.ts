@@ -3,7 +3,10 @@
 // votes); Phase 3 replaces the choices but keeps this flow and these data shapes.
 
 import { broadcastClaim, claimWindow } from '../bots/claims';
+import { buildAlibi } from '../bots/decisions';
 import { closeAllSightings, pruneForMeeting } from '../bots/memory';
+import { personality } from '../bots/personality';
+import { decideVote, reconsiderVote } from '../bots/voting';
 import { onEjectionResult, onMeetingStart } from '../bots/suspicion';
 import { pickLine, type Intent } from '../chat/templates';
 import type { GameMap } from './map';
@@ -109,6 +112,8 @@ export function startMeeting(state: SimState, calledBy: Unit, reason: MeetingRea
     b.actionTicks = 0;
     b.headX = 0;
     b.headY = 0;
+    b.voteChanged = false;
+    b.selfReportTick = 0;
   }
   state.events.push({ kind: 'meetingStart', calledBy: calledBy.id, reason, bodyOf });
   // Now that memories are closed, every bot weighs what it saw around the death (SPEC 9.7).
@@ -147,9 +152,20 @@ export function stepMeeting(state: SimState, input: PlayerInput, map: GameMap, c
     }
     for (const bot of state.bots) {
       const u = state.units[bot.unitId] as Unit;
-      if (!u.alive || m.votes[u.id] !== undefined) continue;
+      if (!u.alive) continue;
       const at = m.botVoteTicks[u.id];
-      if (at !== undefined && state.tick >= at) castBotVote(state, m, u, config);
+      if (m.votes[u.id] === undefined) {
+        if (at !== undefined && state.tick >= at) castBotVote(state, m, u, config);
+      } else if (!bot.voteChanged && state.tick % Math.round(config.tickRate / 2) === 0) {
+        // New evidence in chat can turn one vote, once (SPEC 9.11).
+        const change = reconsiderVote(bot, u, state, m.votes[u.id] as Vote);
+        if (change) {
+          m.votes[u.id] = change.vote;
+          bot.voteChanged = true;
+          bot.social.lastVoteReason = change.reason;
+          state.events.push({ kind: 'vote', unitId: u.id });
+        }
+      }
     }
     botChat(state, m, config);
     const living = state.units.filter((u) => u.alive);
@@ -249,14 +265,15 @@ export function validVote(state: SimState, voter: Unit, vote: Vote): boolean {
   return !!target && target.alive && target.id !== voter.id;
 }
 
-/** Phase 2 bot vote: skip sometimes, otherwise a random living unit (never self, never a fellow impostor). */
-function castBotVote(state: SimState, m: MeetingState, bot: Unit, config: SimConfig): void {
-  const rng = state.rng;
-  const options = state.units.filter((u) => u.alive && u.id !== bot.id && !(bot.role === 'impostor' && u.role === 'impostor'));
-  const vote: Vote = options.length === 0 || rng.chance(config.meeting.botVote.skipChance) ? 'skip' : rng.pick(options).id;
-  m.votes[bot.id] = vote;
-  state.events.push({ kind: 'vote', unitId: bot.id });
-  maybeSay(state, m, bot, 'voted', config);
+/** A bot votes for reasons (SPEC 9.11); the reason is kept for F3's "why I voted". */
+function castBotVote(state: SimState, m: MeetingState, unit: Unit, config: SimConfig): void {
+  const bot = state.bots.find((b) => b.unitId === unit.id);
+  if (!bot) return;
+  const decision = decideVote(bot, unit, state);
+  m.votes[unit.id] = decision.vote;
+  bot.social.lastVoteReason = decision.reason;
+  state.events.push({ kind: 'vote', unitId: unit.id });
+  maybeSay(state, m, unit, 'voted', config);
 }
 
 /** The turn scheduler (SPEC 9.9): at most one bot line every gap, replies to the player come first. */
@@ -272,7 +289,7 @@ function botChat(state: SimState, m: MeetingState, config: SimConfig): void {
     return;
   }
   if (state.tick < m.nextBotChatTick) return;
-  const talkers = state.units.filter((u) => u.alive && !u.isPlayer && (m.botMessagesSent[u.id] ?? 0) < config.meeting.botChat.maxMessagesPerBot);
+  const talkers = state.units.filter((u) => u.alive && !u.isPlayer && (m.botMessagesSent[u.id] ?? 0) < messageCap(state, u.id, config));
   if (talkers.length === 0) return;
   const speaker = rng.pick(talkers);
   const sent = m.botMessagesSent[speaker.id] ?? 0;
@@ -289,11 +306,15 @@ function botChat(state: SimState, m: MeetingState, config: SimConfig): void {
 
 function maybeSay(state: SimState, m: MeetingState, speaker: Unit, intent: Intent, config: SimConfig, extra: { other?: string } = {}, map?: GameMap): void {
   if (!speaker.alive) return;
-  if ((m.botMessagesSent[speaker.id] ?? 0) >= config.meeting.botChat.maxMessagesPerBot && intent !== 'voted') return;
+  if ((m.botMessagesSent[speaker.id] ?? 0) >= messageCap(state, speaker.id, config) && intent !== 'voted') return;
   const used = new Set(m.usedTemplates);
   const victim = m.bodyOf !== null ? state.units[m.bodyOf]?.name : undefined;
   const caller = state.units[m.calledBy]?.name;
-  const slots = { name: speaker.name, room: m.roomsAtStart[speaker.id] ?? undefined, victim, caller, other: extra.other };
+  // The room in an alibi comes from the bot's own memory; impostors swap out the kill room (SPEC 9.6).
+  let alibiRoom: string | undefined = m.roomsAtStart[speaker.id] ?? undefined;
+  const bot = state.bots.find((b) => b.unitId === speaker.id);
+  if (bot && intent === 'alibi') alibiRoom = buildAlibi(bot, speaker, state, claimWindow(state, config), config).room;
+  const slots = { name: speaker.name, room: alibiRoom, victim, caller, other: extra.other };
   const text = pickLine(intent, slots, used, state.rng);
   if (!text) return;
   m.usedTemplates = [...used];
@@ -316,6 +337,12 @@ function scheduleReplies(state: SimState, m: MeetingState, player: Unit, config:
   const [d0, d1] = pair(config.meeting.botChat.replyDelaySec, 2, 5);
   const chosen = rng.shuffle(bots).slice(0, count);
   for (const b of chosen) m.pendingReplies.push({ tick: state.tick + Math.round(rng.range(d0, d1) * config.tickRate), botId: b.id, toName: player.name });
+}
+
+/** How many lines a bot gets per meeting: its personality's talkativeness (SPEC 9.9). */
+function messageCap(state: SimState, unitId: number, config: SimConfig): number {
+  const bot = state.bots.find((b) => b.unitId === unitId);
+  return bot ? personality(bot.personality).messagesPerMeeting : config.meeting.botChat.maxMessagesPerBot;
 }
 
 function pair(range: readonly number[] | undefined, a: number, b: number): [number, number] {

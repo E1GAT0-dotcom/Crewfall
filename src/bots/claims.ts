@@ -9,6 +9,7 @@ import type { GameMap } from '../sim/map';
 import type { Difficulty } from '../sim/settings';
 import type { SimConfig, SimState } from '../sim/sim';
 import { BRAINS, recall, sightingsOf, type BotMemory } from './memory';
+import { difficultyTable, personality } from './personality';
 import { onAccusation, onClaimChecked } from './suspicion';
 
 export type ClaimKind =
@@ -124,9 +125,11 @@ export function broadcastClaim(state: SimState, claim: Omit<Claim, 'id' | 'tick'
     const unit = state.units[bot.unitId];
     if (!unit || !unit.alive || unit.id === full.speakerId) continue;
     if (full.kind === 'accuse') {
-      if (speaker) onAccusation(bot.social, unit.id, speaker, full.subjectId, state);
+      if (speaker) onAccusation(bot.social, unit.id, speaker, full.subjectId, state, personality(bot.personality).playerAccusationScale);
       continue;
     }
+    // Cross-checking takes effort: easy bots often let a claim slide (SPEC 9.12).
+    if (!state.rng.chance(difficultyTable(state.settings.difficulty).crossCheckClaims)) continue;
     const c = findContradiction(unit.id, bot.memory, full, state, map, config);
     if (c) bot.memory.contradictions.push(c);
     onClaimChecked(bot.social, full, c, c ? false : corroborates(unit.id, bot.memory, full, state, map, config), state);

@@ -12,6 +12,7 @@ import { createBotState, stepBot, type BotState } from '../bots/brain';
 import type { Claim } from '../bots/claims';
 import { perceive } from '../bots/memory';
 import { tickSocial } from '../bots/suspicion';
+import { assignPersonalities } from '../bots/personality';
 import { findKillTarget, tryCallMeeting, tryKill, tryReport, updatePlayerTask, type Body, type SimEvent } from './actions';
 import { stepMeeting, type MeetingState, type Vote } from './meeting';
 import { checkWin, type Outcome } from './win';
@@ -207,7 +208,8 @@ export function createGame(map: GameMap, settings: GameSettings, seed: number, c
       meetingsLeft: mode === 'lobby' ? 0 : settings.emergencyMeetings,
     });
   }
-  const bots = units.filter((u) => !u.isPlayer).map((u) => createBotState(u.id, rng, config));
+  const personalities = assignPersonalities(count - 1, rng);
+  const bots = units.filter((u) => !u.isPlayer).map((u, i) => createBotState(u.id, rng, config, personalities[i]));
   const state: SimState = {
     mode,
     seed,

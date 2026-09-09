@@ -255,7 +255,7 @@ export class HudScene extends Phaser.Scene {
       const role = u.role === 'impostor' ? `IMP${u.killCooldownTicks > 0 ? ' ' + Math.ceil(u.killCooldownTicks / 30) + 's' : ' rdy'}` : 'crew';
       const life = u.alive ? '' : ' †';
       const mark = this.inspected === i ? '>' : ' ';
-      lines.push(`${mark}${i + 1} ${(u.name + life).padEnd(8)} ${role.padEnd(7)} ${unitRegionName(u, this.map).padEnd(11)} ${describeGoal(bot)}`);
+      lines.push(`${mark}${i + 1} ${(u.name + life).padEnd(8)} ${role.padEnd(7)} ${bot.personality.padEnd(10)} ${unitRegionName(u, this.map).padEnd(11)} ${describeGoal(bot)}`);
     });
     const bot = this.inspected >= 0 ? s.bots[this.inspected] : undefined;
     if (bot) {
@@ -268,6 +268,7 @@ export class HudScene extends Phaser.Scene {
       for (const b of mem.bodies) lines.push(`  saw ${s.units[b.victimId]?.name}'s body in ${b.room} at ${clock(b.tick, 30)}`);
       for (const c of mem.contradictions.slice(-3)) lines.push('  CONTRADICTION: ' + c.why);
       lines.push(...describeSocial(bot.social, s, bot.unitId, 30));
+      lines.push(`why I voted: ${bot.social.lastVoteReason ?? '(no vote yet)'}`);
     } else if (s.mode === 'game') {
       lines.push('', 'press 1-9 to inspect a bot');
     }

@@ -6,12 +6,42 @@
     "perception: what counts as 'with someone', 'at a task spot', 'near a body', in tiles.",
     "claims.windowSec: how far back an alibi like 'i was in Medbay' is taken to cover.",
     "claims.contradictionMinSec: how long my sighting must clash with a claim before I call it a contradiction.",
-    "recall.roomBlurNeighbours: a misremembered room becomes a neighbouring one. recall.timeBlurSec: a misremembered time shifts by up to this."
+    "recall.roomBlurNeighbours: a misremembered room becomes a neighbouring one. recall.timeBlurSec: a misremembered time shifts by up to this.",
+    "difficulty.impostorFaking: sloppy / good / perfect. killCaution: onlyAlone (nobody in sight at all), normal (nobody could see), tracksWitnesses (normal plus self-reports and framing).",
+    "difficulty.crossCheckClaims: chance a bot checks a claim against its memory. playerTargeting: random / normal / prioritize (the player when the player has accused it).",
+    "crew.buddy: how long (seconds) a buddying stretch lasts and how close to stay. crew.fear: top suspect within this many tiles with nobody else near makes a bot walk to company."
   ],
   "difficulty": {
-    "easy":   { "memoryAccuracy": 0.7, "memorySpanMeetings": 2 },
-    "normal": { "memoryAccuracy": 0.9, "memorySpanMeetings": 3 },
-    "hard":   { "memoryAccuracy": 1.0, "memorySpanMeetings": null }
+    "easy": {
+      "memoryAccuracy": 0.7,
+      "memorySpanMeetings": 2,
+      "impostorFaking": "sloppy",
+      "killCaution": "onlyAlone",
+      "crossCheckClaims": 0.3,
+      "playerTargeting": "random",
+      "selfReportChance": 0,
+      "fakeVisualTaskChance": 0.4
+    },
+    "normal": {
+      "memoryAccuracy": 0.9,
+      "memorySpanMeetings": 3,
+      "impostorFaking": "good",
+      "killCaution": "normal",
+      "crossCheckClaims": 0.8,
+      "playerTargeting": "normal",
+      "selfReportChance": 0,
+      "fakeVisualTaskChance": 0
+    },
+    "hard": {
+      "memoryAccuracy": 1,
+      "memorySpanMeetings": null,
+      "impostorFaking": "perfect",
+      "killCaution": "tracksWitnesses",
+      "crossCheckClaims": 1,
+      "playerTargeting": "prioritize",
+      "selfReportChance": 0.25,
+      "fakeVisualTaskChance": 0
+    }
   },
   "perception": {
     "companionRangeTiles": 3,
@@ -26,5 +56,35 @@
   },
   "recall": {
     "timeBlurSec": 10
+  },
+  "crew": {
+    "buddy": {
+      "durationSec": [
+        12,
+        30
+      ],
+      "stayWithinTiles": 2.5,
+      "repathSec": 1,
+      "cooldownSec": [
+        10,
+        25
+      ]
+    },
+    "fear": {
+      "rangeTiles": 6,
+      "cooldownSec": 20,
+      "minSuspicion": 40
+    },
+    "button": {
+      "walkIfCertain": true
+    }
+  },
+  "impostor": {
+    "selfReportDelaySec": [
+      3,
+      8
+    ],
+    "fleeAfterKillTiles": 12,
+    "avoidPlayerAloneOnHard": true
   }
 }

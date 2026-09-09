@@ -69,13 +69,17 @@ export interface BotMemory {
   bodies: BodySighting[];
   /** Claims by others that clash with my own sightings. */
   contradictions: Contradiction[];
+  /** My own room history (tick of each change), for alibis. */
+  myRooms: RoomVisit[];
+  /** Kills I made (impostors only), for building lies. */
+  myKills: { tick: number; victimId: number; room: string }[];
   nextSightingId: number;
   /** Tick at which each meeting started, oldest first; used for the memory span. */
   meetingStarts: number[];
 }
 
 export function createMemory(): BotMemory {
-  return { sightings: [], open: {}, kills: [], bodies: [], contradictions: [], nextSightingId: 1, meetingStarts: [] };
+  return { sightings: [], open: {}, kills: [], bodies: [], contradictions: [], myRooms: [], myKills: [], nextSightingId: 1, meetingStarts: [] };
 }
 
 interface DifficultyBrains {
@@ -102,6 +106,11 @@ export function perceive(memory: BotMemory, observer: Unit, state: SimState, map
   const taskRange = p.taskSpotRangeTiles * ts;
   const bodyRange = p.bodyRangeTiles * ts;
   const seen = new Set<number>();
+
+  // Where am I? Kept as a change log so alibis can name a room for any moment.
+  const myRoom = regionOf(observer, map)?.name ?? '?';
+  const lastMine = memory.myRooms[memory.myRooms.length - 1];
+  if (!lastMine || lastMine.room !== myRoom) memory.myRooms.push({ tick: state.tick, room: myRoom });
 
   for (const subject of state.units) {
     if (subject.id === observer.id || !subject.alive) continue;
