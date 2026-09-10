@@ -3,7 +3,8 @@
 *(Skeleton. Filled in as each system is built; completed in Phase 7.)*
 
 ## Starting the game
-Double-click `play.bat`. A browser tab opens with the game.
+Double-click `play.bat`. A browser tab opens with a loading screen (stars, a counter of assets loaded,
+units drifting past) and then the lobby.
 
 ## The lobby
 The game opens in a lobby with you and the bots. Walk to the **SETTINGS** computer and press **E**

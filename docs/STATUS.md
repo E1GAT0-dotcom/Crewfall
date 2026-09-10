@@ -76,6 +76,9 @@ Close the black command window to stop it.
   and skips typed by the player; questioned or accused bots answer within 2–5 s; nonsense gets a
   shrug. F3 shows each bot's last line and why, and how your last line was read. 168 tests pass.
 
+- Loading screen: stars, title, "loading assets X/Y" with a bar, and units in random colours drifting
+  past. The total comes from the manifests, so new assets are counted automatically.
+
 ## Not yet built
 - Phase 3 step 5: the headless simulator (npm run sim), tuning to the 35–65% crew win band, docs and the Phase 3 report. Then Phase 4 onward: sabotage, minigames, maps, art and sound.
 

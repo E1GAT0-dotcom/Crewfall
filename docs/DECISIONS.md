@@ -315,3 +315,10 @@ Anything else earns a shrug and changes nothing. F3 shows how the last line was 
 ## 2026-09-09 — One bot line per 1.5–3 s, always
 Bots answering each other used to speak on their own clock and could overlap. Now every bot line,
 including answers, waits for the minimum gap since the last bot line.
+
+## 2026-09-09 — Loading screen (Greg)
+The Boot scene is now a loading screen: the star background, the title, a bar and "loading assets
+X/Y", and eight units in random colours drifting across the screen once the idle sprites are in.
+Y is the number of files the manifests name (plus the two manifests), so any new map, sprite sheet
+or, from Phase 7, sound is counted the moment it is listed. It stays up at least
+`loading.minSeconds` (1.5 s) so it can be seen on a fast machine.

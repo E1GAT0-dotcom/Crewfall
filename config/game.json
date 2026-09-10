@@ -13,7 +13,8 @@
     "stars.layers: the star background. speed is pixels per second downward; bigger scale = closer stars.",
     "rules: fixed distances and timers from SPEC 13. Ranges in tiles, times in seconds.",
     "bots.report.delaySec: how long a crew bot takes to report a body it has reached. bots.kill.hesitateSec: pause before an impostor bot kills.",
-    "meeting: resultSec is how long the ejection result stays up. botChat paces bot messages (SPEC 9.9). botVote.skipChance is how often a Phase 2 bot skips."
+    "meeting: resultSec is how long the ejection result stays up. botChat paces bot messages (SPEC 9.9). botVote.skipChance is how often a Phase 2 bot skips.",
+    "loading.minSeconds: the loading screen stays up at least this long so it can be seen on a fast machine."
   ],
   "tickRate": 30,
   "canvas": {
@@ -148,5 +149,8 @@
         0.9
       ]
     }
+  },
+  "loading": {
+    "minSeconds": 1.5
   }
 }
