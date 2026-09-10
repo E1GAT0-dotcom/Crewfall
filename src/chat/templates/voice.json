@@ -1,0 +1,178 @@
+{
+  "_help": [
+    "Bot voices (SPEC 9.9). intents -> personality style -> lines. Casual, short, lowercase, like real players type.",
+    "Slots: {other} the person talked about, {room}, {victim}, {caller}, {accuser}, {time} (m:ss), {ago} (e.g. 12 s).",
+    "A line is only used when the bot has the evidence to fill it; the strongest evidence picks the accuse_* family.",
+    "No line repeats within one meeting. Edit freely; keep at least 6 lines per intent per style."
+  ],
+  "intents": {
+    "open_body": {
+      "aggressive": ["ok who did it", "{caller} where was the body. now.", "someone here killed {victim}, spill", "right. who was near {victim}", "start talking", "{caller} details, fast"],
+      "analyst": ["where exactly was {victim}, {caller}?", "{caller}, room and time please", "let's get positions from everyone", "who saw {victim} last", "ok. facts first. {caller}?", "where was the body and who was nearby"],
+      "follower": ["oh no {victim}", "where was it {caller}?", "who found them?", "what happened to {victim}", "guys what do we know", "someone tell me where"],
+      "quiet": ["where", "{victim}. where", "{caller}?", "body where", "ok", "room?"],
+      "nervous": ["oh god oh no {victim}", "wait wait where was it {caller}", "i didn't do anything i swear, where was it", "this is bad, who was near {victim}??", "someone please say where", "{caller} you found them?? where??"],
+      "joker": ["rip {victim}, press F", "{caller} found a body, classic", "well that's one less for tasks", "ok detective {caller}, where", "someone's been busy", "{victim} out here taking a permanent nap"]
+    },
+    "open_button": {
+      "aggressive": ["why the button {caller}", "this better be good", "{caller} what", "you saw something or you wasted our time", "talk", "what is it"],
+      "analyst": ["{caller}, what did you see?", "reason for the meeting?", "ok {caller}, go ahead", "evidence, {caller}?", "what prompted this", "let's hear it"],
+      "follower": ["what happened {caller}?", "is everything ok?", "why the button?", "did you see something?", "oh, a meeting", "what's going on"],
+      "quiet": ["why", "{caller}?", "button for what", "?", "go on", "what"],
+      "nervous": ["what what what happened", "{caller} did someone die??", "is someone dead?? is it bad??", "please tell me you saw something", "why did you press it {caller}", "ok ok ok what is it"],
+      "joker": ["{caller} pressed the shiny button", "meeting time, i was doing so well on tasks too", "ok {caller}, this better not be about the wires again", "someone's bored", "what's the tea {caller}", "emergency: {caller} is lonely"]
+    },
+    "alibi": {
+      "aggressive": ["i was in {room}. next.", "{room}, doing tasks, don't bother", "i was in {room} the whole time", "{room}. move on.", "me? {room}. obviously", "i was in {room}, not that it matters"],
+      "analyst": ["i was in {room} at {time}", "{room}, around {time}, doing tasks", "for the record: {room}, {time}", "i was in {room} then went to do tasks", "my position at {time} was {room}", "{room} at {time}, if anyone saw me"],
+      "follower": ["i was in {room} i think", "um {room}, doing tasks", "i was over in {room}", "{room} for me", "i think i was in {room}", "i was in {room}, someone probably saw me"],
+      "quiet": ["{room}", "i was in {room}", "{room}, tasks", "was in {room}", "{room}. that's it", "me: {room}"],
+      "nervous": ["i was in {room} i promise, i was doing my tasks, like really doing them", "ok so i was in {room}, i didn't see anything, i just went there for tasks", "{room}!! i was in {room}!!", "i was in {room} the whole time ok, don't look at me", "i went to {room} for tasks, that's all, that's literally all", "{room}, i swear on everything"],
+      "joker": ["i was in {room} living my best life", "{room}, doing tasks like a good little crewmate", "i was in {room}, ask the walls", "{room}. alibi delivered. thank you", "i was in {room} pretending to be useful", "me? {room}. riveting stuff"]
+    },
+    "alibi_answer": {
+      "aggressive": ["{room}. why", "i already said, {room}", "{room}, and you?", "{room}. next question", "why do you care. {room}", "{room}"],
+      "analyst": ["{room}, at {time}", "i was in {room} from around {time}", "{room}. i can give times if you want", "{room}, doing tasks, {time}", "position: {room}", "{room}, as i said"],
+      "follower": ["oh, {room}", "i was in {room}, sorry", "{room}, yeah", "um, {room}?", "i was in {room}, is that ok", "{room} i think"],
+      "quiet": ["{room}", "{room}.", "in {room}", "{room}, why", "said already. {room}", "{room}, tasks"],
+      "nervous": ["{room}! i was in {room}! why are you asking me", "ok ok {room}, i was in {room}, i promise", "why me?? {room}!", "{room}, i didn't do anything", "i was in {room} doing tasks i swear", "{room}. please stop looking at me"],
+      "joker": ["{room}, since you asked so nicely", "{room}. very exciting place", "{room}, want a tour?", "i was in {room} being innocent", "{room}. next question, your honor", "{room}, i got a receipt"]
+    },
+    "accuse_witnessed": {
+      "aggressive": ["I SAW {other} DO IT. vote {other}.", "it's {other}. i watched it happen in {room}", "{other} killed {victim}. i was right there. vote.", "{other}. now. i saw it.", "not a guess. {other} did it in {room}. vote them", "{other} is the impostor, i saw the kill"],
+      "analyst": ["i saw {other} kill {victim} in {room} at {time}. that settles it", "this is not a theory: {other} did it, {room}, {time}", "vote {other}. i witnessed the kill in {room}", "{other} killed {victim} in front of me in {room}", "i have direct evidence: {other}, {room}, {time}", "{other}. i saw it. {room}, {time}"],
+      "follower": ["guys i saw {other} do it, in {room}", "i think it was {other}, i saw them kill {victim}", "please believe me, {other} did it in {room}", "it was {other}, i saw it happen", "{other} killed {victim}, i saw it, sorry {other}", "i saw {other} in {room} doing it"],
+      "quiet": ["{other}. i saw it", "{other} killed {victim}. {room}", "saw {other} do it", "{other}. vote", "it's {other}. i watched", "{other}, {room}, i saw"],
+      "nervous": ["it was {other} it was {other} i saw it in {room} oh god", "{other} killed {victim} i saw it i saw it", "please vote {other} i watched them do it in {room}", "i'm shaking, {other} did it right in front of me", "{other}!!! in {room}!!! i saw!!!", "it's {other}, i saw the whole thing, please"],
+      "joker": ["fun fact: {other} killed {victim} in {room}. saw it live", "plot twist, it's {other}. front row seat in {room}", "{other} did it. not even a joke this time", "vote {other}, i watched the season finale in {room}", "{other} in {room}. saw it. wild", "ok real talk: {other} killed {victim}"]
+    },
+    "accuse_left": {
+      "aggressive": ["{other} came out of {room} right before the report. vote {other}", "{other} was leaving {room} {ago} before. that's the killer", "it's {other}. left {room} just before the body", "{other}. {room}. {ago} before. done", "who left {room} right before? {other}. vote", "{other} walked out of {room} and then there's a body. come on"],
+      "analyst": ["i saw {other} leave {room} about {ago} before the report", "{other} left {room} at {time}, the body was in {room}. that lines up", "timeline: {other} exits {room} at {time}, report shortly after", "{other} was the one leaving {room} {ago} before this", "the body was in {room}. {other} left {room} at {time}", "{other} exiting {room} at {time} is my strongest lead"],
+      "follower": ["um, i saw {other} leave {room} just before", "wasn't the body in {room}? {other} was coming out of there", "i think {other} left {room} right before the report", "{other} was in {room} just before, i saw them leave", "not sure but {other} came out of {room}", "{other} left {room} {ago} before, maybe that's something"],
+      "quiet": ["{other} left {room} {ago} before", "{other}. {room}. just before", "saw {other} leave {room}", "{other} was in {room} right before", "{other} came out of {room}", "{other}, {room}, {time}"],
+      "nervous": ["i saw {other} leave {room} and then the body and now i'm scared of {other}", "{other} came out of {room} like {ago} before, that's not good right", "please don't be mad {other} but you left {room} right before", "{other} was leaving {room}, i saw it, {ago} before, i think, maybe", "why was {other} leaving {room} right before {victim} was found", "{other} {room} {ago} before, i'm just saying"],
+      "joker": ["{other} sprinting out of {room} {ago} before a body shows up. suspicious cardio", "the body's in {room} and {other} was just leaving {room}. coincidence? sure", "{other} left {room} right before. bold", "{other} exits {room} at {time}. body in {room}. i'm just reading the script", "not accusing, just noting {other} left {room} {ago} before", "{other} and {room}, name a more iconic duo"]
+    },
+    "accuse_lastwith": {
+      "aggressive": ["{other} was the last one with {victim}. vote {other}", "last person with {victim}? {other}. done", "{other} was with {victim} in {room}. then {victim} is dead. vote", "{other}. last seen with {victim}. that's enough for me", "it's {other}, they were glued to {victim}", "{other} was with {victim} at {time}. explain that"],
+      "analyst": ["the last time i saw {victim} alive they were with {other} in {room}, {time}", "{other} was with {victim} in {room} at {time}. {other}, where did you go after?", "last known: {victim} and {other} together in {room}", "i last saw {victim} with {other}. that's where i'd start", "{other} and {victim} were together at {time}. then {victim} died", "{other}, you were with {victim} in {room}. what happened"],
+      "follower": ["i saw {victim} with {other} in {room} earlier", "wasn't {other} with {victim}?", "{other} was with {victim} last i saw", "i think {victim} was with {other} in {room}", "{other} and {victim} were together, right?", "maybe ask {other}, they were with {victim}"],
+      "quiet": ["{other} was with {victim}", "last saw {victim} with {other}. {room}", "{other}. {victim}. {room}", "{other} was with them", "{victim} was with {other}, {time}", "{other}, you were with {victim}"],
+      "nervous": ["{other} was with {victim} i saw them together in {room} and now {victim} is dead", "wasn't {other} with {victim}?? in {room}?? i'm not saying anything but", "i saw {victim} with {other} and i don't want to point fingers but {other}", "{other} was right next to {victim} at {time}, i think, i'm pretty sure", "please {other} you were with {victim} right? please say you weren't", "{other} and {victim} were together and that scares me"],
+      "joker": ["{other} was {victim}'s last date in {room}. didn't end well", "last seen with {victim}: {other}. thoughts?", "{other} and {victim} were besties in {room} at {time}. now it's just {other}", "{other}, you were with {victim}. rough timing", "so {other} was the last one with {victim}. i'm sure it's fine", "{other} walked {victim} to {room}. very gentlemanly. very suspicious"]
+    },
+    "accuse_contra": {
+      "aggressive": ["{other} is lying. said {room}, i saw them in {other_room}", "{other} just lied about {room}. vote {other}", "no. {other} was in {other_room}, not {room}. liar", "{other}, you said {room}. you were in {other_room}. caught", "vote {other}, they can't even keep their story straight", "{room}? {other} was in {other_room}. done"],
+      "analyst": ["{other}, you said {room}. i saw you in {other_room} at {time}", "that doesn't match: {other} in {other_room}, not {room}", "{other}'s alibi conflicts with what i saw: {other_room}, {time}", "i have {other} in {other_room} when they claim {room}", "{other} claimed {room}. my sighting says {other_room}. one of us is wrong and it's not me", "{other}: {room} you say. {other_room} i saw. explain"],
+      "follower": ["um {other}, i thought i saw you in {other_room}?", "wait, {other} said {room} but i saw them in {other_room}", "sorry {other} but weren't you in {other_room}?", "that's odd, {other} was in {other_room} i think", "{other} i saw you in {other_room}, not {room}", "didn't {other} come from {other_room}?"],
+      "quiet": ["{other} was in {other_room}. not {room}", "{other}. {other_room}. i saw", "no. {other_room}", "{other} lied. {other_room}", "saw {other} in {other_room}", "{room}? no. {other_room}"],
+      "nervous": ["wait wait {other} you said {room} but i saw you in {other_room} i'm sure i'm sure", "that's not right, {other} was in {other_room}, i saw it, i think, yes", "{other} why did you say {room}?? you were in {other_room}!!", "i saw {other} in {other_room} and now they say {room} and i don't like this", "{other} that's a lie i saw you in {other_room} please don't kill me", "{other_room}. {other} was in {other_room}. not {room}. i saw"],
+      "joker": ["{other} said {room}. {other} was in {other_room}. spicy", "ah yes {room}, also known as {other_room}, where i actually saw {other}", "{other} teleported from {other_room} to {room}? sick powers", "funny, {other}, i saw you in {other_room}", "{other}'s story has a plot hole: {other_room}", "{other} out here lying about {room}. i saw {other_room}"]
+    },
+    "accuse_other": {
+      "aggressive": ["{other} is sus. vote {other}", "it's {other}. trust me", "{other}. something's off with {other}", "i don't like {other} today. vote", "{other} has been acting weird all game", "vote {other} and let's go"],
+      "analyst": ["{other} is my top suspect right now", "my best guess is {other}, based on what i've seen", "if i had to pick: {other}", "{other} has the most against them by my count", "leaning {other}, for several small reasons", "{other}. not certain, but the most likely"],
+      "follower": ["is it {other}? feels like {other}", "i kind of suspect {other}", "maybe {other}?", "{other} seems a bit off to me", "i'd go {other} i guess", "{other}, sorry, just a feeling"],
+      "quiet": ["{other}", "{other}. sus", "probably {other}", "{other}, imo", "i say {other}", "{other}. that's my pick"],
+      "nervous": ["i think it's {other} i think i think", "{other} is scaring me a bit ngl", "is it {other}?? it feels like {other}", "i keep coming back to {other}", "{other}, maybe, i don't know, {other}", "please don't be mad but {other}"],
+      "joker": ["{other} gives impostor energy", "my money's on {other}. not real money", "{other} is sus and i'm not sorry", "{other}. vibes. bad ones", "if it's not {other} i'll eat my visor", "{other} has main character syndrome. sus"]
+    },
+    "corroborate": {
+      "aggressive": ["{other} was in {room}, i saw them. leave it", "yeah {other} was in {room}. moving on", "{other} is clear, i saw them in {room}", "true, {other} was in {room}", "{other} in {room}, confirmed. next", "i saw {other} in {room} too. drop it"],
+      "analyst": ["confirmed: {other} was in {room} around {time}", "i can back {other}: {room}, {time}", "{other}'s story checks out, i saw them in {room}", "{other} in {room} matches my sighting", "yes, {other} was in {room} when i passed", "i have {other} in {room} at {time} as well"],
+      "follower": ["yeah i saw {other} in {room} too", "{other} was in {room}, that's true", "i can vouch for {other}, {room}", "{other} was there, i saw", "yep {other} in {room}", "that's right, {other} was in {room}"],
+      "quiet": ["{other} was in {room}. saw them", "true. {room}", "{other}, {room}. yes", "saw {other} there", "confirmed", "{other} checks out"],
+      "nervous": ["yes yes {other} was in {room} i saw them i'm sure", "{other} is telling the truth, {room}, i saw", "i can vouch for {other}, they were in {room}, i think, yes", "{other} was there! {room}! i saw!", "ok {other} was in {room}, that one's true", "{other} in {room}, i saw them, phew"],
+      "joker": ["{other} was in {room}, i saw them doing something boring", "can confirm {other} in {room}. thrilling", "{other}'s alibi is legit, sadly", "{other} was in {room}, unfortunately for the drama", "yeah {other} was in {room}, i was ignoring them there", "{other} checks out. boo"]
+    },
+    "contradict": {
+      "aggressive": ["that's a lie {other}. you were in {other_room}", "no. i saw {other} in {other_room}", "{other} stop lying. {other_room}", "wrong. {other_room}. i saw you", "{other}, i literally saw you in {other_room}", "cut it out {other}, {other_room}"],
+      "analyst": ["that's not what i saw, {other}. you were in {other_room} at {time}", "correction: {other} was in {other_room}, {time}", "{other}, my sighting has you in {other_room}", "i have to flag that: {other} in {other_room}, not {room}", "{other}, {other_room} at {time}. not {room}", "doesn't match. {other} was in {other_room}"],
+      "follower": ["um, i saw {other} in {other_room} though", "wait {other}, weren't you in {other_room}?", "i think {other} was in {other_room}, sorry", "that's not what i saw {other}", "hmm i saw {other} in {other_room}", "{other} in {other_room}? i thought so"],
+      "quiet": ["no. {other_room}", "{other} was in {other_room}", "wrong. {other_room}", "saw you in {other_room}, {other}", "{other_room}, {other}", "not {room}. {other_room}"],
+      "nervous": ["wait no {other} i saw you in {other_room} why would you say {room}", "{other} that's not true i saw you in {other_room} i'm sure i'm sure", "{other_room}! {other} was in {other_room}!", "why is {other} lying?? {other_room}!!", "i saw {other} in {other_room} and now i'm freaking out", "{other} please, {other_room}, i saw you"],
+      "joker": ["{other} in {room}? i saw {other} in {other_room}. someone's confused and it's not me", "{other_room}. i saw you {other}. nice try", "{other} said {room}, {other} meant {other_room}, easy mistake, very suspicious", "bold claim {other}, i saw you in {other_room}", "{other} rewriting history live", "{other_room} says hi, {other}"]
+    },
+    "question": {
+      "aggressive": ["{other}. where were you", "{other} talk. where", "where were you {other}. quick", "{other}?", "haven't heard from {other}. where", "{other}, room. now"],
+      "analyst": ["{other}, where were you at {time}?", "{other}, can you give your position?", "where were you {other}, roughly what time", "{other}, your route please", "{other}, i don't have you anywhere. where were you", "{other}, where were you when it happened"],
+      "follower": ["where were you {other}?", "{other} where were you?", "and you {other}?", "{other}, what about you", "hey {other}, where were you", "{other}? where?"],
+      "quiet": ["{other}?", "{other}. where", "where, {other}", "{other} where were you", "and {other}?", "{other}, room"],
+      "nervous": ["{other} where were you please just say", "{other}?? where?? i need to know", "can {other} say where they were, please", "{other} you've been quiet, where were you", "where were you {other} i'm asking nicely", "{other} please, room?"],
+      "joker": ["{other}, where were you, and no 'tasks' doesn't count", "{other} has been very quiet. suspiciously quiet. where", "{other} where you at", "{other}, spill, where were you", "quiet ones first: {other}, where", "{other}. location. go"]
+    },
+    "defend": {
+      "aggressive": ["me? no. {accuser} is deflecting. vote {accuser}", "{accuser} accusing me is the most sus thing so far", "nice try {accuser}. i was in {room}. what about you", "{accuser} wants me gone. wonder why", "i was in {room}. {accuser} is lying", "vote {accuser}, not me. {accuser} is the one hiding"],
+      "analyst": ["my route: {room} at {time}, then tasks. anyone who saw me can confirm", "{accuser}, i was in {room} at {time}. check with whoever was there", "here's my timeline: {room}, {time}. nothing near the body", "i understand the suspicion, but i was in {room} at {time}", "{accuser}, what's your evidence? mine says {room}, {time}", "for the record, {room} at {time}. that's all i've got"],
+      "follower": ["if you all think it's me... i was in {room} though", "i don't know what to say, i was in {room}", "ok ok, i was in {room}, do what you think is right", "i'm not, but i was in {room} if that helps", "please, i was in {room}. but ok", "i'll accept it if everyone says so. i was in {room}"],
+      "quiet": ["not me. {room}", "no. i was in {room}", "{room}. not me", "wrong. {room}", "i was in {room}", "no"],
+      "nervous": ["it's not me it's not me i was in {room} doing tasks i didn't even see {victim} i swear", "why me?? i was in {room}!! i didn't do anything!!", "ok this looks bad but i was in {room}, i just, i went there for tasks, i can explain", "{accuser} please i was in {room} i promise i promise", "i'm not the impostor i was in {room} i'm just nervous ok", "i was in {room}!! ask anyone!! please!!"],
+      "joker": ["me? the impostor? with these tasks? i was in {room}", "{accuser} it's cute you think i could pull that off. {room}", "guilty of being in {room}. that's it", "i was in {room} being incredibly innocent", "if i were the impostor you'd all be dead already. {room}", "{accuser} accusing me? ok. i was in {room}, for real"]
+    },
+    "deflect": {
+      "aggressive": ["whatever", "sure", "ok", "and?", "cool story", "moving on"],
+      "analyst": ["noted", "let's stay on evidence", "that's not evidence", "back to positions", "we're wasting time", "unhelpful"],
+      "follower": ["oh", "ok...", "i don't know", "hmm", "maybe", "if you say so"],
+      "quiet": ["...", "ok", "hm", "sure", "no", "k"],
+      "nervous": ["i don't know i don't know", "please stop", "this is stressing me out", "ok ok ok", "can we not", "i can't think"],
+      "joker": ["lol", "that's what an impostor would say", "spicy", "bold", "i'm just here for the chat", "ok sherlock"]
+    },
+    "skip": {
+      "aggressive": ["nothing solid. skip", "skip and stop wasting time", "no proof. skip", "skip. next body we vote", "skip it", "nobody has anything. skip"],
+      "analyst": ["insufficient evidence. i suggest skip", "no clear case. skip", "we don't have enough. skip", "i'd rather skip than guess", "skip, and everyone note who was where", "no confirmed sightings. skip"],
+      "follower": ["skip?", "maybe we skip", "i'd skip i think", "if no one knows, skip", "skip is fine", "let's just skip"],
+      "quiet": ["skip", "no info. skip", "skipping", "skip this one", "skip.", "nothing. skip"],
+      "nervous": ["skip skip please skip", "i don't want to vote wrong, skip", "can we skip? i'm scared of being wrong", "skip, we don't know anything", "skip and stay together please", "let's skip and go in pairs"],
+      "joker": ["skip and pray", "skip, nobody knows anything, as usual", "skipping like it's leg day", "skip. the impostor thanks us", "let's skip and do tasks like good little bots", "skip, i've got wires to fix"]
+    },
+    "follow": {
+      "aggressive": ["fine, {other}", "if {accuser} says {other}, {other}", "{other} then. vote", "ok {other}. done", "sure, {other}", "{other}, let's go"],
+      "analyst": ["{accuser}'s account is the most specific. i'll go {other}", "i'll follow {accuser} on {other}, the timing fits", "{other}, based on what {accuser} saw", "{accuser} has the best evidence. {other}", "going {other} with {accuser}", "ok, {other}. {accuser}'s point stands"],
+      "follower": ["i'm with {accuser} on this. {other}", "if {accuser} saw it then {other}", "ok, {other}", "{accuser} makes sense. {other}", "i trust {accuser}. {other}", "{other}, i guess, if {accuser} says"],
+      "quiet": ["{other}", "ok. {other}", "with {accuser}", "{other} then", "fine. {other}", "{other}. sure"],
+      "nervous": ["ok ok {other} if {accuser} says so", "i believe {accuser}, {other}, please be right", "{other}, i'm going with {accuser}, sorry {other}", "if {accuser} saw it then {other}, ok, ok", "{other}. {accuser} sounds sure. i'm not. but ok", "voting {other} because {accuser}, don't hate me"],
+      "joker": ["{accuser} sounds sure so, {other} it is", "sure, {other}. {accuser} did the homework", "{other}. sorry {other}. blame {accuser}", "ok {other}, {accuser} has convinced me, easily", "{other}, on {accuser}'s word. no refunds", "riding with {accuser} on {other}"]
+    },
+    "react_eject_right": {
+      "aggressive": ["told you", "obviously", "one down", "called it", "see. {other}.", "good"],
+      "analyst": ["good. that was the right call", "correct. keep tracking positions", "one impostor down, stay careful", "as expected", "that confirms it", "well done everyone"],
+      "follower": ["yay we got them", "oh good, it was {other}", "phew", "nice!", "we did it", "good job guys"],
+      "quiet": ["good", "yes", "ok", "nice", "done", "one down"],
+      "nervous": ["oh thank god thank god", "we got them we got them", "i can breathe", "that was so close", "ok ok good", "phew phew phew"],
+      "joker": ["bye {other}, don't let the airlock hit you", "gg {other}", "{other} took the space walk. deserved", "nature is healing", "and {other} was the impostor. shocker", "one small step for {other}"]
+    },
+    "react_eject_wrong": {
+      "aggressive": ["great. we just killed crew. who pushed {other}?", "{other} was crew. whoever led that, i'm watching you", "wrong. useless", "nice one everyone", "who voted {other}? remember that", "that's on whoever accused {other}"],
+      "analyst": ["{other} was crew. whoever pushed hardest for that is now suspect", "that was a mistake. note who voted {other}", "wrong call. re-check who accused {other}", "we lost crew. the accuser of {other} needs a look", "incorrect. let's be more careful", "{other} was innocent. that changes the picture"],
+      "follower": ["oh no, {other} was crew", "we were wrong...", "sorry {other}", "that's bad", "i feel awful", "we messed up"],
+      "quiet": ["wrong", "{other} was crew", "bad", "no", "hm", "mistake"],
+      "nervous": ["no no no {other} was crew we killed crew", "oh god we got it wrong", "i knew it i knew it", "we're going to lose", "sorry {other} sorry sorry", "this is so bad"],
+      "joker": ["{other} was crew. oops", "well that's awkward", "rip {other}, victim of democracy", "we ejected the wrong guy. classic us", "{other} was innocent. cool cool cool", "and the impostor laughs"]
+    },
+    "react_noeject": {
+      "aggressive": ["wasted meeting", "great, nothing", "next time vote", "cowards", "fine. tasks", "useless"],
+      "analyst": ["no ejection. keep tracking positions", "fine. everyone note who goes where", "no result. stay in pairs", "ok, more data next time", "inconclusive", "back to tasks, carefully"],
+      "follower": ["ok nobody", "back to tasks i guess", "stay safe everyone", "ok", "let's stick together", "nobody then"],
+      "quiet": ["ok", "tasks", "nobody", "fine", "k", "back to work"],
+      "nervous": ["ok ok nobody, please nobody kill me", "back out there... great", "can someone come with me", "i don't want to go alone", "stay in groups please", "ok. ok. tasks"],
+      "joker": ["nobody ejected, the impostor's favorite result", "back to tasks, try not to die", "another productive meeting", "gg go next", "ok everyone, buddy system", "the suspense continues"]
+    },
+    "reply": {
+      "aggressive": ["what", "say what you mean", "and?", "ok", "so?", "point?"],
+      "analyst": ["can you be specific?", "meaning?", "who and where?", "noted", "i need names and rooms", "unclear"],
+      "follower": ["ok...", "um", "what do you mean?", "sure", "hm ok", "i see"],
+      "quiet": ["?", "ok", "hm", "...", "what", "k"],
+      "nervous": ["what?? what does that mean", "i don't understand", "is that bad?", "ok ok", "wait what", "huh"],
+      "joker": ["profound", "ok cool", "what", "riveting", "and that means?", "deep"]
+    },
+    "voted": {
+      "aggressive": ["voted", "done", "locked", "vote's in", "next", "voted. move"],
+      "analyst": ["vote cast", "voted, for the record", "locked in", "done", "voted", "my vote is in"],
+      "follower": ["ok voted", "voted", "done i think", "i voted", "locked in", "ok done"],
+      "quiet": ["voted", "done", "k", "in", "voted.", "ok"],
+      "nervous": ["voted, i hope it's right", "ok i voted", "done, please be right", "voted...", "i did it", "ok ok voted"],
+      "joker": ["voted. no takebacks", "democracy done", "voted, blame me later", "locked in, baby", "done, let's see", "vote cast, popcorn ready"]
+    }
+  }
+}

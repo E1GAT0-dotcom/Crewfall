@@ -289,3 +289,29 @@ Live testing showed honest bots being contradicted: "i was in Cafeteria" covered
 45 s, so anyone who had changed rooms got caught out. Now an alibi covers the death moment plus or
 minus 8 s (`claims.alibiSlackSec`), a bot in a corridor names the room it just left or was about to
 enter, and walking through a corridor never contradicts a room claim.
+
+## 2026-09-09 — Voices: 21 intents, six styles, 756 lines
+`src/chat/templates/voice.json` holds the lines (SPEC 9.9): openers for a body or the button,
+alibis (unprompted and as an answer), five accusation families chosen by the strongest evidence
+(witnessed, left the body's room, last seen with the victim, contradicted alibi, general),
+corroborate, contradict, question, defend (aggressive counter-accuses, analysts give times,
+followers defer, quiet ones deny in a word, nervous ones over-explain, jokers joke first), deflect,
+skip, follow, three result reactions, a shrug for nonsense, and the "voted" line. Greg can edit the
+file freely; the tests only require six lines per intent per style.
+
+## 2026-09-09 — A line is a claim
+Every line that asserts a fact (an alibi, "I saw X in Y", an accusation) is broadcast as a claim,
+so the other bots check it, and conversation state on the meeting records who accused whom and who
+asked whom. Questions and accusations at a bot get an answer within 2–5 s; questions and accusations
+at the player wait for the player.
+
+## 2026-09-09 — What the parser understands
+Names and colours (case-insensitive, unique prefixes, one typo for longer names), room names
+(with prefixes like "elec", "cafe", "nav"), and: accuse ("it's X", "X vented", "vote X", "X is sus",
+"X killed"), alibi ("i was in X", or just a room name), with ("i was with X", "X was with me"),
+sighting ("i saw X in Y", "X was in Y"), question ("where were you X?", "X?", just a name), skip.
+Anything else earns a shrug and changes nothing. F3 shows how the last line was read.
+
+## 2026-09-09 — One bot line per 1.5–3 s, always
+Bots answering each other used to speak on their own clock and could overlap. Now every bot line,
+including answers, waits for the minimum gap since the last bot line.

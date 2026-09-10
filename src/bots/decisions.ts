@@ -145,17 +145,17 @@ export function accusationTarget(bot: BotState, unit: Unit, state: SimState): { 
 }
 
 /** The strongest single piece of evidence a bot holds against a target, for wording choices. */
-export function strongestEvidence(social: SocialModel, targetId: number): { kind: string; reason: string } | null {
+export function strongestEvidence(social: SocialModel, targetId: number): { kind: string; reason: string; detail?: { room?: string; tick?: number; otherRoom?: string } } | null {
   if (social.certain[targetId]) {
     const e = social.evidence.find((x) => x.targetId === targetId && x.change === 'certain');
-    return e ? { kind: e.kind, reason: e.reason } : null;
+    return e ? { kind: e.kind, reason: e.reason, detail: e.detail } : null;
   }
-  let best: { kind: string; reason: string; change: number } | null = null;
+  let best: { kind: string; reason: string; change: number; detail?: { room?: string; tick?: number; otherRoom?: string } } | null = null;
   for (const e of social.evidence) {
     if (e.targetId !== targetId || typeof e.change !== 'number' || e.change <= 0) continue;
-    if (!best || e.change > best.change) best = { kind: e.kind, reason: e.reason, change: e.change };
+    if (!best || e.change > best.change) best = { kind: e.kind, reason: e.reason, change: e.change, detail: e.detail };
   }
-  return best ? { kind: best.kind, reason: best.reason } : null;
+  return best ? { kind: best.kind, reason: best.reason, detail: best.detail } : null;
 }
 
 export function suspicionSummary(social: SocialModel, state: SimState, selfId: number): string {

@@ -1,6 +1,6 @@
 # STATUS — Crewfall (working title)
 
-**Current phase:** Phase 3 — Bot brains, steps 1–3 of 5 done (memory; suspicion; personalities, decisions and voting). Phase 2 built and self-tested; awaiting Greg's play-test sign-off.
+**Current phase:** Phase 3 — Bot brains, steps 1–4 of 5 done (memory; suspicion; personalities and decisions; voices and parser). Phase 2 built and self-tested; awaiting Greg's play-test sign-off.
 
 ## How to launch
 Double-click `play.bat` in the project folder. A browser tab opens with the game.
@@ -68,12 +68,19 @@ Close the black command window to stop it.
   threshold, followers follow, analysts wait, impostors never vote their partner and turn on their
   loudest accuser) and may change once. F3 shows personality and "why I voted". 154 tests pass.
 
+- Phase 3 step 4: bots talk from evidence in six personality voices (756 lines in
+  src/chat/templates/voice.json): they open, give alibis, accuse with wording picked by their
+  strongest evidence, back up or contradict each other's alibis, question the silent, defend
+  themselves in character, follow, suggest skips and react to the result. Every factual line is a
+  claim the others check. The parser understands accusations, alibis, sightings, "with", questions
+  and skips typed by the player; questioned or accused bots answer within 2–5 s; nonsense gets a
+  shrug. F3 shows each bot's last line and why, and how your last line was read. 168 tests pass.
+
 ## Not yet built
-- Phase 3 steps 4–5: voices (evidence-driven chat) and the chat parser; the simulator and tuning. Then Phase 4 onward: sabotage, minigames, maps, art and sound.
+- Phase 3 step 5: the headless simulator (npm run sim), tuning to the 35–65% crew win band, docs and the Phase 3 report. Then Phase 4 onward: sabotage, minigames, maps, art and sound.
 
 ## Known limitations (by design so far)
 - The unit is a placeholder with idle, walk and dead frames; ghosts are the same sprite faded.
-- Bots have no memory or suspicion yet: meeting chat is generic small talk and votes are random (Phase 3).
 - No sabotage, vents or task minigames yet (Phases 4 and 5). Tasks are done by holding E.
 - Vents, sabotage panels and doors exist in the map file but are not drawn or usable yet.
 

@@ -65,8 +65,20 @@ discussion (chat only), then voting: click a tile, then Confirm, or press Skip. 
 vote until the timer ends; voting ends early when everyone has voted. The most votes is ejected;
 a tie, or more skips than votes for anyone, ejects nobody. With "confirm ejects" on you are told
 whether the ejected player was an impostor. Type in the box on the right and press Enter to talk.
-Dead players can read but not talk or vote. Right now bots only make small talk and vote at random;
-Phase 3 gives them memory and opinions.
+Dead players can read but not talk or vote.
+
+## Talking to the bots
+Bots understand plain typed sentences. Things that work:
+- Accuse: "it's Trix", "Trix vented", "vote trix", "red is sus", "Trix killed them".
+- Say where you were: "i was in medbay", or just "medbay".
+- Say who you were with: "i was with Pru", "Pru was with me".
+- Say what you saw: "i saw Bix in electrical", "Bix was in storage".
+- Ask someone: "where were you Eve?", or just "Eve?".
+- Give up: "skip", "no info".
+Names and colours can be shortened ("tri", "pur") and typos of one letter are forgiven. A bot you
+question or accuse answers within a few seconds, in its own personality. Bots remember what you
+claim and will call you out if it clashes with what they saw. Anything they cannot understand gets
+a shrug and changes nothing. With F3 on, the debug panel shows how your last line was read.
 
 ## How a game ends
 The crew wins when every crew task is done or every impostor has been voted out. The impostors win

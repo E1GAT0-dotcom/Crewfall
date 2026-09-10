@@ -247,6 +247,7 @@ export class HudScene extends Phaser.Scene {
       `fps ${Math.round(this.game.loop.actualFps)}   tick ${s.tick}   seed ${s.seed}   ${s.mode} / ${s.phase}`,
       `you: ${p.name} (${p.role}${p.alive ? '' : ', dead'})   pos ${Math.round(p.x)}, ${Math.round(p.y)}   tile ${tx}, ${ty}   ${region}`,
       `crew tasks ${s.crewTasks.done}/${s.crewTasks.total}   bodies ${s.bodies.length}   meetings held ${s.meetingsHeld}   nav ${nav.nodes.length} nodes, ${edgeCount / 2} edges`,
+      ...(s.meeting?.lastPlayerParse ? [`your last line was read as: ${s.meeting.lastPlayerParse}`] : []),
       '',
     ];
     s.bots.forEach((bot, i) => {
@@ -269,6 +270,7 @@ export class HudScene extends Phaser.Scene {
       for (const c of mem.contradictions.slice(-3)) lines.push('  CONTRADICTION: ' + c.why);
       lines.push(...describeSocial(bot.social, s, bot.unitId, 30));
       lines.push(`why I voted: ${bot.social.lastVoteReason ?? '(no vote yet)'}`);
+      lines.push(`last line: ${bot.lastIntent ?? '(nothing said yet)'}`);
     } else if (s.mode === 'game') {
       lines.push('', 'press 1-9 to inspect a bot');
     }

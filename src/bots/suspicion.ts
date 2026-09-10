@@ -19,6 +19,8 @@ export interface EvidenceRecord {
   /** The change applied (0 when locked), or the lock that was set. */
   readonly change: number | 'certain' | 'cleared';
   readonly reason: string;
+  /** Structured bits of the reason, for choosing chat wording. */
+  readonly detail?: { room?: string; tick?: number; otherRoom?: string };
 }
 
 export interface SocialModel {
@@ -50,7 +52,7 @@ export function trustIn(social: SocialModel, otherId: number): number {
 }
 
 /** Applies one piece of evidence and logs it. Locks (certain / cleared) win over ordinary changes. */
-export function addEvidence(social: SocialModel, targetId: number, kind: EvidenceKind, reason: string, tick: number, scale = 1): void {
+export function addEvidence(social: SocialModel, targetId: number, kind: EvidenceKind, reason: string, tick: number, scale = 1, detail?: { room?: string; tick?: number; otherRoom?: string }): void {
   const weight = SUSPICION.weights[kind] as number | 'certain' | 'cleared';
   let change: number | 'certain' | 'cleared';
   if (weight === 'certain') {
@@ -69,7 +71,7 @@ export function addEvidence(social: SocialModel, targetId: number, kind: Evidenc
       social.suspicion[targetId] = clamp(suspicionOf(social, targetId) + change, 0, 100);
     }
   }
-  social.evidence.push({ tick, targetId, kind, change, reason });
+  social.evidence.push(detail ? { tick, targetId, kind, change, reason, detail } : { tick, targetId, kind, change, reason });
   if (social.evidence.length > SUSPICION.evidenceLogMax) social.evidence.splice(0, social.evidence.length - SUSPICION.evidenceLogMax);
 }
 
@@ -97,7 +99,7 @@ export function tickSocial(social: SocialModel, memory: BotMemory, me: Unit, sta
     const k = memory.kills[social.killsProcessed]!;
     const killer = state.units[k.killerId]?.name ?? '?';
     const victim = state.units[k.victimId]?.name ?? '?';
-    addEvidence(social, k.killerId, 'witnessedKill', `I saw ${killer} kill ${victim} in ${k.room} at ${clock(k.tick, rate)}`, state.tick);
+    addEvidence(social, k.killerId, 'witnessedKill', `I saw ${killer} kill ${victim} in ${k.room} at ${clock(k.tick, rate)}`, state.tick, 1, { room: k.room, tick: k.tick });
   }
   const w = SUSPICION.windows;
   const shadowTicks = Math.round(w.shadowSec * rate);
@@ -160,7 +162,7 @@ export function onMeetingStart(state: SimState, map: GameMap, config: SimConfig)
         if (cid === me.id) continue;
         const c = state.units[cid];
         if (!c || !c.alive) continue;
-        addEvidence(social, cid, 'lastSeenWithVictim', `${c.name} was the last one I saw with ${victim.name}, in ${room} at ${clock(lastSeen.endTick, rate)}`, state.tick);
+        addEvidence(social, cid, 'lastSeenWithVictim', `${c.name} was the last one I saw with ${victim.name}, in ${room} at ${clock(lastSeen.endTick, rate)}`, state.tick, 1, { room, tick: lastSeen.endTick });
       }
     }
 
@@ -172,7 +174,7 @@ export function onMeetingStart(state: SimState, map: GameMap, config: SimConfig)
         for (const s of sightingsOf(memory, target.id, from, reportTick)) {
           const leaveTick = leftRoomAt(me.id, s, bodyRoom, state, map, config);
           if (leaveTick !== null && leaveTick >= from && leaveTick <= reportTick) {
-            addEvidence(social, target.id, 'leftBodyRoom', `${target.name} left ${bodyRoom} at ${clock(leaveTick, rate)}, ${Math.round((reportTick - leaveTick) / rate)} s before the report`, state.tick);
+            addEvidence(social, target.id, 'leftBodyRoom', `${target.name} left ${bodyRoom} at ${clock(leaveTick, rate)}, ${Math.round((reportTick - leaveTick) / rate)} s before the report`, state.tick, 1, { room: bodyRoom, tick: leaveTick });
             break;
           }
         }
@@ -191,7 +193,7 @@ export function onMeetingStart(state: SimState, map: GameMap, config: SimConfig)
 /** When a claim has been checked against this bot's memory: contradiction raises suspicion and lowers trust; a match raises trust. */
 export function onClaimChecked(social: SocialModel, claim: Claim, contradiction: Contradiction | null, corroborated: boolean, state: SimState): void {
   if (contradiction) {
-    addEvidence(social, claim.speakerId, 'contradiction', contradiction.why, state.tick);
+    addEvidence(social, claim.speakerId, 'contradiction', contradiction.why, state.tick, 1, { room: claim.room ?? undefined, otherRoom: contradiction.sawRoom, tick: contradiction.sawFrom });
     adjustTrust(social, claim.speakerId, SUSPICION.trust.contradicted);
   } else if (corroborated) {
     adjustTrust(social, claim.speakerId, SUSPICION.trust.corroborated);

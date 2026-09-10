@@ -151,7 +151,7 @@ describe('Phase 2 bot voices and votes', () => {
     expect(chat.length).toBeGreaterThan(3);
     const minGap = Math.round((config.meeting.botChat.gapSec[0] ?? 1.5) * RATE);
     for (let i = 1; i < chat.length; i++) expect(chat[i]!.tick - chat[i - 1]!.tick).toBeGreaterThanOrEqual(1);
-    const botLines = chat.filter((c) => c.unitId !== 0 && !['voted', 'done', 'ok voted', 'locked in', 'my vote is in', 'voting now'].includes(c.text));
+    const botLines = chat.filter((c) => c.unitId !== 0 && c.intent !== 'voted');
     for (let i = 1; i < botLines.length; i++) expect(botLines[i]!.tick - botLines[i - 1]!.tick).toBeGreaterThanOrEqual(minGap);
     const texts = chat.map((c) => c.text);
     expect(new Set(texts).size).toBe(texts.length);
@@ -169,7 +169,7 @@ describe('Phase 2 bot voices and votes', () => {
     for (let i = 0; i < 6 * RATE && replyAt < 0; i++) {
       stepSim(s, NO_INPUT, map, config);
       const last = s.meeting?.chat.at(-1);
-      if (last && last.unitId !== 0 && s.meeting?.chat.some((c) => c.tick > sentAt && ['what?', 'ok...', 'hm', 'say what you mean', 'sure Greg', 'if you say so', 'and?', 'ok Greg'].includes(c.text))) replyAt = s.tick;
+      if (last && last.unitId !== 0 && s.meeting?.chat.some((c) => c.tick > sentAt && c.intent === 'reply')) replyAt = s.tick;
     }
     expect(replyAt).toBeGreaterThan(0);
     expect(replyAt - sentAt).toBeGreaterThanOrEqual(2 * RATE);

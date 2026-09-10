@@ -3,12 +3,14 @@
 // votes); Phase 3 replaces the choices but keeps this flow and these data shapes.
 
 import { alibiWindow, broadcastClaim } from '../bots/claims';
-import { buildAlibi } from '../bots/decisions';
+import type { BotState } from '../bots/brain';
 import { closeAllSightings, pruneForMeeting } from '../bots/memory';
 import { personality } from '../bots/personality';
 import { decideVote, reconsiderVote } from '../bots/voting';
 import { onEjectionResult, onMeetingStart } from '../bots/suspicion';
-import { pickLine, type Intent } from '../chat/templates';
+import { parsePlayerMessage } from '../chat/parser';
+import { pickVoiceLine } from '../chat/templates';
+import { chooseLine, createConversation, reactionLine, shrugLine, urgency, type Conversation, type VoiceLine } from '../chat/voice';
 import type { GameMap } from './map';
 import { unitRegionName, type PlayerInput, type SimConfig, type SimState, type Unit } from './sim';
 
@@ -23,6 +25,8 @@ export interface ChatMessage {
   readonly tick: number;
   readonly unitId: number;
   readonly text: string;
+  /** The bot's intent behind the line (undefined for the player). */
+  readonly intent?: string;
 }
 
 export interface MeetingResult {
@@ -57,7 +61,15 @@ export interface MeetingState {
   nextBotChatTick: number;
   botMessagesSent: Record<number, number>;
   usedTemplates: string[];
-  pendingReplies: { tick: number; botId: number; toName: string }[];
+  pendingReplies: { tick: number; botId: number; toName: string; kind: 'shrug' | 'turn' }[];
+  /** Who accused whom, who asked whom, who has spoken (SPEC 9.9 conversation state). */
+  convo: Conversation;
+  /** Ticks at which result-stage reactions are due. */
+  reactionTicks: number[];
+  /** What the parser made of the player's last line, for F3. */
+  lastPlayerParse: string | null;
+  /** Tick of the last bot line, so bot lines keep the minimum gap (SPEC 9.9). */
+  lastBotLineTick: number;
 }
 
 export type MeetingEvent =
@@ -93,6 +105,10 @@ export function startMeeting(state: SimState, calledBy: Unit, reason: MeetingRea
     botMessagesSent: {},
     usedTemplates: [],
     pendingReplies: [],
+    convo: createConversation(),
+    reactionTicks: [],
+    lastPlayerParse: null,
+    lastBotLineTick: -1000,
   };
   state.phase = 'meeting';
   state.meeting = meeting;
@@ -128,13 +144,13 @@ export function stepMeeting(state: SimState, input: PlayerInput, map: GameMap, c
   currentMap = map;
   const player = state.units[0] as Unit;
 
-  // Player chat: anyone alive may talk during discussion and voting.
+  // Player chat: anyone alive may talk during discussion and voting. What they say is parsed (SPEC 9.10).
   if (input.chatText && player.alive && m.stage !== 'result') {
     const text = input.chatText.trim().slice(0, 120);
     if (text.length > 0) {
       m.chat.push({ tick: state.tick, unitId: player.id, text });
       state.events.push({ kind: 'chat', unitId: player.id });
-      scheduleReplies(state, m, player, config);
+      handlePlayerLine(state, m, player, text, map, config);
     }
   }
 
@@ -174,7 +190,10 @@ export function stepMeeting(state: SimState, input: PlayerInput, map: GameMap, c
     return;
   }
 
-  if (m.stage === 'result' && state.tick >= m.stageEndsTick) finishMeeting(state, map, config);
+  if (m.stage === 'result') {
+    resultReactions(state, m, config);
+    if (state.tick >= m.stageEndsTick) finishMeeting(state, map, config);
+  }
 }
 
 function enterVoting(state: SimState, config: SimConfig): void {
@@ -196,6 +215,7 @@ function enterResult(state: SimState, config: SimConfig): void {
   m.stage = 'result';
   m.result = tallyVotes(state, m.votes);
   m.stageEndsTick = state.tick + Math.round(config.meeting.resultSec * config.tickRate);
+  m.reactionTicks = [state.tick + Math.round(0.6 * config.tickRate), state.tick + Math.round(2.2 * config.tickRate)];
   state.events.push({ kind: 'meetingStage', stage: 'result' });
   state.events.push({ kind: 'ejected', unitId: m.result.ejectedId, wasImpostor: m.result.wasImpostor });
 }
@@ -273,70 +293,158 @@ function castBotVote(state: SimState, m: MeetingState, unit: Unit, config: SimCo
   m.votes[unit.id] = decision.vote;
   bot.social.lastVoteReason = decision.reason;
   state.events.push({ kind: 'vote', unitId: unit.id });
-  maybeSay(state, m, unit, 'voted', config);
+  announceVote(state, m, unit, bot);
 }
 
-/** The turn scheduler (SPEC 9.9): at most one bot line every gap, replies to the player come first. */
+/**
+ * The turn scheduler (SPEC 9.9): at most one bot line every gap; bots with something urgent to say
+ * (an answer, a defence) get the floor first; replies to the player come at their own time.
+ */
 function botChat(state: SimState, m: MeetingState, config: SimConfig): void {
   const rng = state.rng;
-  // Replies to the player are due at their own time, independent of the general pace.
+  const [g0, g1] = pair(config.meeting.botChat.gapSec, 1.5, 3);
+  const minGap = Math.round(g0 * config.tickRate);
+  if (state.tick - m.lastBotLineTick < minGap) return;
   const due = m.pendingReplies.filter((r) => state.tick >= r.tick);
   if (due.length > 0) {
     m.pendingReplies = m.pendingReplies.filter((r) => state.tick < r.tick);
-    const reply = due[0] as { botId: number; toName: string };
-    const bot = state.units[reply.botId];
-    if (bot && bot.alive) maybeSay(state, m, bot, 'reply', config, { other: reply.toName });
+    const reply = due[0] as { botId: number; toName: string; kind: 'shrug' | 'turn' };
+    const unit = state.units[reply.botId];
+    const bot = state.bots.find((b) => b.unitId === reply.botId);
+    if (unit && bot && unit.alive) {
+      const line = reply.kind === 'shrug' ? shrugLine(bot, state, m, reply.toName) : chooseLine(bot, unit, state, m, currentMap as GameMap, config);
+      if (line) speak(state, m, unit, bot, line, config);
+    }
     return;
   }
   if (state.tick < m.nextBotChatTick) return;
-  const talkers = state.units.filter((u) => u.alive && !u.isPlayer && (m.botMessagesSent[u.id] ?? 0) < messageCap(state, u.id, config));
+  const talkers = state.bots.filter((b) => {
+    const u = state.units[b.unitId];
+    return u && u.alive && (m.botMessagesSent[u.id] ?? 0) < messageCap(state, u.id, config);
+  });
   if (talkers.length === 0) return;
-  const speaker = rng.pick(talkers);
-  const sent = m.botMessagesSent[speaker.id] ?? 0;
-  const elapsed = state.tick - m.startedTick;
-  let intent: Intent;
-  if (sent === 0 && elapsed < config.tickRate * 8 && rng.chance(0.6)) intent = m.reason === 'body' ? 'open_body' : 'open_button';
-  else if (rng.chance(0.45)) intent = 'alibi';
-  else if (m.stage === 'voting' && rng.chance(0.5)) intent = 'skip';
-  else intent = 'shrug';
-  maybeSay(state, m, speaker, intent, config, {}, currentMap ?? undefined);
-  const [g0, g1] = pair(config.meeting.botChat.gapSec, 1.5, 3);
-  m.nextBotChatTick = state.tick + Math.round(rng.range(g0, g1) * config.tickRate);
-}
-
-function maybeSay(state: SimState, m: MeetingState, speaker: Unit, intent: Intent, config: SimConfig, extra: { other?: string } = {}, map?: GameMap): void {
-  if (!speaker.alive) return;
-  if ((m.botMessagesSent[speaker.id] ?? 0) >= messageCap(state, speaker.id, config) && intent !== 'voted') return;
-  const used = new Set(m.usedTemplates);
-  const victim = m.bodyOf !== null ? state.units[m.bodyOf]?.name : undefined;
-  const caller = state.units[m.calledBy]?.name;
-  // The room in an alibi comes from the bot's own memory; impostors swap out the kill room (SPEC 9.6).
-  let alibiRoom: string | undefined = m.roomsAtStart[speaker.id] ?? undefined;
-  const bot = state.bots.find((b) => b.unitId === speaker.id);
-  if (bot && intent === 'alibi') alibiRoom = buildAlibi(bot, speaker, state, alibiWindow(state, config), config).room;
-  const slots = { name: speaker.name, room: alibiRoom, victim, caller, other: extra.other };
-  const text = pickLine(intent, slots, used, state.rng);
-  if (!text) return;
-  m.usedTemplates = [...used];
-  m.chat.push({ tick: state.tick, unitId: speaker.id, text });
-  m.botMessagesSent[speaker.id] = (m.botMessagesSent[speaker.id] ?? 0) + 1;
-  state.events.push({ kind: 'chat', unitId: speaker.id });
-  // An alibi is a checkable claim: every other bot compares it with what it saw.
-  if (intent === 'alibi' && slots.room && map) {
-    const w = alibiWindow(state, config);
-    broadcastClaim(state, { speakerId: speaker.id, kind: 'alibi', subjectId: speaker.id, room: slots.room, otherId: null, fromTick: w.fromTick, toTick: w.toTick }, map, config);
+  const weights = talkers.map((b) => 1 + urgency(b, state.units[b.unitId] as Unit, state, m));
+  const bot = talkers[weightedIndex(rng, weights)] as (typeof talkers)[0];
+  const unit = state.units[bot.unitId] as Unit;
+  const line = currentMap ? chooseLine(bot, unit, state, m, currentMap, config) : null;
+  if (line) {
+    speak(state, m, unit, bot, line, config);
+    m.nextBotChatTick = state.tick + Math.round(rng.range(g0, g1) * config.tickRate);
+  } else {
+    // Nothing to say: a short beat, then someone else may try.
+    m.nextBotChatTick = state.tick + Math.round(g0 * config.tickRate * 0.5);
   }
 }
 
-/** One or two living bots answer the player within 2-5 s (SPEC 9.10, generic for now). */
-function scheduleReplies(state: SimState, m: MeetingState, player: Unit, config: SimConfig): void {
-  const rng = state.rng;
-  const bots = state.units.filter((u) => u.alive && !u.isPlayer);
-  if (bots.length === 0) return;
-  const count = Math.min(bots.length, rng.chance(0.4) ? 2 : 1);
+/** Puts a chosen line into the chat and lets its claim or question take effect. */
+function speak(state: SimState, m: MeetingState, unit: Unit, bot: BotState, line: VoiceLine, config: SimConfig): void {
+  m.chat.push({ tick: state.tick, unitId: unit.id, text: line.text, intent: line.intent });
+  m.lastBotLineTick = state.tick;
+  m.botMessagesSent[unit.id] = (m.botMessagesSent[unit.id] ?? 0) + 1;
+  (m.convo.spoken[unit.id] ??= []).push(line.intent);
+  bot.lastIntent = `${line.intent}: ${line.why}`;
+  state.events.push({ kind: 'chat', unitId: unit.id });
+  if (line.claim && currentMap) {
+    const claim = broadcastClaim(state, line.claim, currentMap, config);
+    if (claim.kind === 'accuse') {
+      m.convo.accusations.push({ accuserId: unit.id, targetId: claim.subjectId, tick: state.tick, answered: false, deflected: false });
+      const target = state.units[claim.subjectId];
+      if (target && !target.isPlayer && target.alive) scheduleTurn(state, m, claim.subjectId, config);
+    }
+  }
+  if (line.questionTo !== undefined) {
+    const target = state.units[line.questionTo];
+    if (target && !target.isPlayer && target.alive) scheduleTurn(state, m, line.questionTo, config);
+  }
+}
+
+/** A bot gets the floor within 2-5 s (to answer a question or an accusation). */
+function scheduleTurn(state: SimState, m: MeetingState, botId: number, config: SimConfig): void {
+  if (m.pendingReplies.some((r) => r.botId === botId)) return;
   const [d0, d1] = pair(config.meeting.botChat.replyDelaySec, 2, 5);
-  const chosen = rng.shuffle(bots).slice(0, count);
-  for (const b of chosen) m.pendingReplies.push({ tick: state.tick + Math.round(rng.range(d0, d1) * config.tickRate), botId: b.id, toName: player.name });
+  m.pendingReplies.push({ tick: state.tick + Math.round(state.rng.range(d0, d1) * config.tickRate), botId, toName: '', kind: 'turn' });
+}
+
+/** The player's line, understood (SPEC 9.10): claims are broadcast, questions and accusations get answers, nonsense gets a shrug. */
+function handlePlayerLine(state: SimState, m: MeetingState, player: Unit, text: string, map: GameMap, config: SimConfig): void {
+  const parsed = parsePlayerMessage(text, state, map);
+  m.lastPlayerParse = `${parsed.intent} (${parsed.why})`;
+  const w = { fromTick: Math.max(0, m.startedTick - Math.round(45 * config.tickRate)), toTick: m.startedTick };
+  const aw = alibiWindow(state, config);
+  switch (parsed.intent) {
+    case 'accuse': {
+      const target = parsed.targetId as number;
+      broadcastClaim(state, { speakerId: player.id, kind: 'accuse', subjectId: target, room: null, otherId: null, ...w }, map, config);
+      m.convo.accusations.push({ accuserId: player.id, targetId: target, tick: state.tick, answered: false, deflected: false });
+      if (state.units[target]?.alive) scheduleTurn(state, m, target, config);
+      return;
+    }
+    case 'question': {
+      const target = parsed.targetId as number;
+      m.convo.questions.push({ askerId: player.id, targetId: target, tick: state.tick, answered: false });
+      if (state.units[target]?.alive) scheduleTurn(state, m, target, config);
+      return;
+    }
+    case 'alibi':
+      m.convo.alibiGiven[player.id] = true;
+      broadcastClaim(state, { speakerId: player.id, kind: 'alibi', subjectId: player.id, room: parsed.room, otherId: null, ...aw }, map, config);
+      return;
+    case 'sighting':
+      broadcastClaim(state, { speakerId: player.id, kind: 'sighting', subjectId: parsed.targetId as number, room: parsed.room, otherId: null, ...aw }, map, config);
+      return;
+    case 'with':
+      broadcastClaim(state, { speakerId: player.id, kind: 'with', subjectId: player.id, room: parsed.room, otherId: parsed.targetId as number, ...aw }, map, config);
+      return;
+    case 'skip':
+      return;
+    default: {
+      // A shrug from one bot within 2-5 s.
+      const bots = state.units.filter((u) => u.alive && !u.isPlayer);
+      if (bots.length === 0) return;
+      const [d0, d1] = pair(config.meeting.botChat.replyDelaySec, 2, 5);
+      m.pendingReplies.push({ tick: state.tick + Math.round(state.rng.range(d0, d1) * config.tickRate), botId: state.rng.pick(bots).id, toName: player.name, kind: 'shrug' });
+    }
+  }
+}
+
+/** One or two bots react to the result. */
+function resultReactions(state: SimState, m: MeetingState, config: SimConfig): void {
+  while (m.reactionTicks.length > 0 && state.tick >= (m.reactionTicks[0] as number)) {
+    m.reactionTicks.shift();
+    const bots = state.bots.filter((b) => state.units[b.unitId]?.alive && b.unitId !== m.result?.ejectedId);
+    if (bots.length === 0) return;
+    const bot = state.rng.pick(bots);
+    const unit = state.units[bot.unitId] as Unit;
+    const line = reactionLine(bot, unit, state, m);
+    if (line) {
+      m.chat.push({ tick: state.tick, unitId: unit.id, text: line.text, intent: line.intent });
+      m.lastBotLineTick = state.tick;
+      bot.lastIntent = `${line.intent}: ${line.why}`;
+      state.events.push({ kind: 'chat', unitId: unit.id });
+    }
+  }
+  void config;
+}
+
+/** The "voted" announcement, from the bot's own voice. */
+function announceVote(state: SimState, m: MeetingState, unit: Unit, bot: BotState): void {
+  const used = new Set(m.usedTemplates);
+  const text = pickVoiceLine('voted', bot.personality, {}, used, state.rng);
+  if (!text) return;
+  m.usedTemplates = [...used];
+  m.chat.push({ tick: state.tick, unitId: unit.id, text, intent: 'voted' });
+  state.events.push({ kind: 'chat', unitId: unit.id });
+}
+
+function weightedIndex(rng: { next(): number }, weights: readonly number[]): number {
+  let total = 0;
+  for (const w of weights) total += w;
+  let r = rng.next() * total;
+  for (let i = 0; i < weights.length; i++) {
+    r -= weights[i] as number;
+    if (r <= 0) return i;
+  }
+  return weights.length - 1;
 }
 
 /** How many lines a bot gets per meeting: its personality's talkativeness (SPEC 9.9). */

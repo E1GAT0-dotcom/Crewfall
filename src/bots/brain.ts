@@ -83,6 +83,8 @@ export interface BotState {
   selfReportTick: number;
   /** True once this bot changed its vote in the current meeting. */
   voteChanged: boolean;
+  /** Last chat intent used and why, for F3. */
+  lastIntent: string | null;
   /** Current heading (unit vector), smoothed so turns are rounded. */
   headX: number;
   headY: number;
@@ -121,6 +123,7 @@ export function createBotState(unitId: number, rng: Rng, config: SimConfig, pers
     fleeCooldownUntil: 0,
     selfReportTick: 0,
     voteChanged: false,
+    lastIntent: null,
     headX: 0,
     headY: 0,
     drift: 0,
