@@ -61,12 +61,23 @@ export interface BodySighting {
   readonly room: string;
 }
 
+/** Someone seen climbing into or out of a vent: proof of an impostor (SPEC 8, 9.7). */
+export interface VentWitness {
+  readonly tick: number;
+  readonly unitId: number;
+  readonly ventId: string;
+  readonly room: string;
+  readonly action: 'enter' | 'exit';
+}
+
 export interface BotMemory {
   sightings: Sighting[];
   /** Open stretches, by subject id. */
   open: Record<number, Sighting>;
   kills: KillWitness[];
   bodies: BodySighting[];
+  /** Vent uses I saw. Never forgotten. */
+  vents: VentWitness[];
   /** Claims by others that clash with my own sightings. */
   contradictions: Contradiction[];
   /** My own room history (tick of each change), for alibis. */
@@ -79,7 +90,7 @@ export interface BotMemory {
 }
 
 export function createMemory(): BotMemory {
-  return { sightings: [], open: {}, kills: [], bodies: [], contradictions: [], myRooms: [], myKills: [], nextSightingId: 1, meetingStarts: [] };
+  return { sightings: [], open: {}, kills: [], bodies: [], vents: [], contradictions: [], myRooms: [], myKills: [], nextSightingId: 1, meetingStarts: [] };
 }
 
 interface DifficultyBrains {
@@ -112,8 +123,11 @@ export function perceive(memory: BotMemory, observer: Unit, state: SimState, map
   const lastMine = memory.myRooms[memory.myRooms.length - 1];
   if (!lastMine || lastMine.room !== myRoom) memory.myRooms.push({ tick: state.tick, room: myRoom });
 
+  // Inside a vent you see nothing, and nobody inside a vent can be seen.
+  const blind = observer.inVent !== null;
   for (const subject of state.units) {
-    if (subject.id === observer.id || !subject.alive) continue;
+    if (blind) break;
+    if (subject.id === observer.id || !subject.alive || subject.inVent !== null) continue;
     if (!canSee(map, observer.x, observer.y, radius, subject.x, subject.y)) continue;
     seen.add(subject.id);
     const region = regionOf(subject, map);
@@ -143,7 +157,7 @@ export function perceive(memory: BotMemory, observer: Unit, state: SimState, map
     // Who is with the subject (anyone alive within a few tiles, the observer included).
     let anyone = false;
     for (const other of state.units) {
-      if (other.id === subject.id || !other.alive) continue;
+      if (other.id === subject.id || !other.alive || other.inVent !== null) continue;
       if (Math.hypot(other.x - subject.x, other.y - subject.y) <= companionRange) {
         anyone = true;
         if (!s.companions.includes(other.id)) s.companions.push(other.id);
@@ -180,18 +194,22 @@ export function perceive(memory: BotMemory, observer: Unit, state: SimState, map
   }
   if (memory.sightings.length > p.maxSightingsPerBot) memory.sightings.splice(0, memory.sightings.length - p.maxSightingsPerBot);
 
+  if (blind) return;
+
   // Bodies in sight, noted once each.
   for (const b of state.bodies) {
     if (memory.bodies.some((seenBody) => seenBody.victimId === b.unitId)) continue;
     if (canSee(map, observer.x, observer.y, radius, b.x, b.y)) memory.bodies.push({ tick: state.tick, victimId: b.unitId, room: roomAtPx(b, map) });
   }
 
-  // Kills this tick that the observer could see, close enough to notice.
+  // Kills and vent uses this tick that the observer could see, close enough to notice.
   const noticeRange = Math.min(radius, p.killNoticeRangeTiles * ts);
+  const ventRange = Math.min(radius, p.ventNoticeRangeTiles * ts);
   for (const ev of state.events) {
-    if (ev.kind !== 'kill' || ev.killerId === observer.id) continue;
-    if (canSee(map, observer.x, observer.y, noticeRange, ev.x, ev.y)) {
+    if (ev.kind === 'kill' && ev.killerId !== observer.id && canSee(map, observer.x, observer.y, noticeRange, ev.x, ev.y)) {
       memory.kills.push({ tick: state.tick, killerId: ev.killerId, victimId: ev.victimId, room: roomAtPx(ev, map) });
+    } else if ((ev.kind === 'ventEnter' || ev.kind === 'ventExit') && ev.unitId !== observer.id && canSee(map, observer.x, observer.y, ventRange, ev.x, ev.y)) {
+      memory.vents.push({ tick: state.tick, unitId: ev.unitId, ventId: ev.ventId, room: roomAtPx(ev, map), action: ev.kind === 'ventEnter' ? 'enter' : 'exit' });
     }
   }
 }
@@ -217,7 +235,13 @@ export function pruneForMeeting(memory: BotMemory, meetingStartTick: number, dif
   const cutoff = memory.meetingStarts[cutoffIndex] as number;
   memory.sightings = memory.sightings.filter((s) => s.endTick >= cutoff);
   memory.bodies = memory.bodies.filter((b) => b.tick >= cutoff);
-  // Certain evidence (a witnessed kill) is never forgotten.
+  // Certain evidence (a witnessed kill or vent) is never forgotten.
+}
+
+/** Plain-language line for F3, e.g. "Trix climbed into a vent in Reactor at 2:10". */
+export function describeVentWitness(v: VentWitness, state: SimState, tickRate: number): string {
+  const who = state.units[v.unitId]?.name ?? '?';
+  return `${who} climbed ${v.action === 'enter' ? 'into' : 'out of'} a vent in ${v.room} at ${clock(v.tick, tickRate)}`;
 }
 
 export interface Recalled {

@@ -115,7 +115,11 @@ export function startMeeting(state: SimState, calledBy: Unit, reason: MeetingRea
   state.meetingsHeld++;
   state.bodies = [];
   state.playerTask = null;
-  for (const u of state.units) u.moving = false;
+  for (const u of state.units) {
+    u.moving = false;
+    // A meeting pulls everyone out of the vents, quietly: nobody sees where they come out.
+    u.inVent = null;
+  }
   // Bots drop whatever they were doing; they think afresh after the meeting. Their memories close
   // the current sightings and forget anything beyond the difficulty's span.
   for (const b of state.bots) {

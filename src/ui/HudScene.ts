@@ -4,7 +4,7 @@
 
 import Phaser from 'phaser';
 import { describeGoal } from '../bots/brain';
-import { clock, describeSighting, recentSightings } from '../bots/memory';
+import { clock, describeSighting, describeVentWitness, recentSightings } from '../bots/memory';
 import { describeSocial } from '../bots/suspicion';
 import type { GameMap } from '../sim/map';
 import { COLORS, playerRegionName, unitRegionName, type SimState, type Unit } from '../sim/sim';
@@ -106,7 +106,7 @@ export class HudScene extends Phaser.Scene {
         H - 14,
         lobby
           ? 'Walk to the SETTINGS computer or the START pad and press E.    WASD / arrows: move    F3: debug'
-          : 'WASD / arrows: move    E: use / hold to do a task    R: report    Q: kill (impostor)    Tab: map    F3: debug    Esc: lobby',
+          : 'WASD / arrows: move    E: use / hold to do a task    R: report    Q: kill, V: vent (impostor)    Tab: map    F3: debug    Esc: lobby',
         { fontFamily: STYLE.font, fontSize: '14px', color: STYLE.dim },
       )
       .setOrigin(0.5, 1)
@@ -254,7 +254,7 @@ export class HudScene extends Phaser.Scene {
       const u = s.units[bot.unitId];
       if (!u) return;
       const role = u.role === 'impostor' ? `IMP${u.killCooldownTicks > 0 ? ' ' + Math.ceil(u.killCooldownTicks / 30) + 's' : ' rdy'}` : 'crew';
-      const life = u.alive ? '' : ' †';
+      const life = u.alive ? (u.inVent !== null ? ' ▽' : '') : ' †';
       const mark = this.inspected === i ? '>' : ' ';
       lines.push(`${mark}${i + 1} ${(u.name + life).padEnd(8)} ${role.padEnd(7)} ${bot.personality.padEnd(10)} ${unitRegionName(u, this.map).padEnd(11)} ${describeGoal(bot)}`);
     });
@@ -266,6 +266,7 @@ export class HudScene extends Phaser.Scene {
       lines.push(`sightings ${mem.sightings.length + Object.keys(mem.open).length}, kills seen ${mem.kills.length}, bodies seen ${mem.bodies.length}, contradictions ${mem.contradictions.length}`);
       for (const sight of recentSightings(mem, 5)) lines.push('  saw ' + describeSighting(sight, s, 30));
       for (const k of mem.kills) lines.push(`  WITNESSED ${s.units[k.killerId]?.name} kill ${s.units[k.victimId]?.name} in ${k.room} at ${clock(k.tick, 30)}`);
+      for (const v of mem.vents) lines.push('  SAW ' + describeVentWitness(v, s, 30));
       for (const b of mem.bodies) lines.push(`  saw ${s.units[b.victimId]?.name}'s body in ${b.room} at ${clock(b.tick, 30)}`);
       for (const c of mem.contradictions.slice(-3)) lines.push('  CONTRADICTION: ' + c.why);
       lines.push(...describeSocial(bot.social, s, bot.unitId, 30));
@@ -347,10 +348,30 @@ export class HudScene extends Phaser.Scene {
     const playerColour = COLORS.find((c) => c.id === this.play.state.units[0]?.colorId)?.tint ?? '#2fd3e6';
     this.tabMapPlayer = this.add.circle(0, 0, Math.max(4, cell * 0.6), Phaser.Display.Color.HexStringToColor(playerColour).color).setStrokeStyle(2, 0xffffff, 0.9);
     this.tabMapTasks = this.add.graphics();
+    const impostor = this.play.state.units[0]?.role === 'impostor';
     const legend = this.add
-      .text(this.scale.width / 2, oy + drawnH + 10, 'yellow: your next task spots', { fontFamily: STYLE.font, fontSize: '13px', color: '#ffc857' })
+      .text(this.scale.width / 2, oy + drawnH + 10, impostor ? 'yellow: your fake task spots    grey: vents, joined by network' : 'yellow: your next task spots', { fontFamily: STYLE.font, fontSize: '13px', color: '#ffc857' })
       .setOrigin(0.5, 0);
+    // Impostors see the vents and which ones connect (SPEC 8).
+    const vents = this.add.graphics();
+    if (impostor) {
+      const at = (v: { pos: readonly [number, number] }) => ({ x: ox + (v.pos[0] + 0.5) * cell, y: oy + (v.pos[1] + 0.5) * cell });
+      vents.lineStyle(1, 0xb8c0d4, 0.5);
+      for (const a of map.vents) {
+        for (const b of map.vents) {
+          if (a.network !== b.network || a.id >= b.id) continue;
+          const p = at(a);
+          const q = at(b);
+          vents.lineBetween(p.x, p.y, q.x, q.y);
+        }
+      }
+      for (const v of map.vents) {
+        const p = at(v);
+        vents.fillStyle(0x1a1e2a, 1).fillRect(p.x - cell * 0.6, p.y - cell * 0.45, cell * 1.2, cell * 0.9);
+        vents.lineStyle(1, 0xb8c0d4, 0.9).strokeRect(p.x - cell * 0.6, p.y - cell * 0.45, cell * 1.2, cell * 0.9);
+      }
+    }
 
-    this.tabMap = this.add.container(0, 0, [backdrop, picture, ...labels, title, this.tabMapTasks, this.tabMapPlayer, legend]).setDepth(30).setVisible(false);
+    this.tabMap = this.add.container(0, 0, [backdrop, picture, ...labels, title, vents, this.tabMapTasks, this.tabMapPlayer, legend]).setDepth(30).setVisible(false);
   }
 }

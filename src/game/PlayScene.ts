@@ -11,6 +11,7 @@ import { defaultSettings, clampSettings, type GameSettings } from '../sim/settin
 import { COLORS, createGame, player as playerOf, stepSim, NO_INPUT, type PlayerInput, type SimMode, type SimState } from '../sim/sim';
 import { nextStage, TASK_LABELS } from '../sim/tasks';
 import { cameraZoom, visionRadiusPx } from '../sim/vision';
+import { ventInReach } from '../sim/vents';
 import type { SpritesManifest } from './assets';
 import { MapView } from './MapView';
 import { NavGraphView } from './NavGraphView';
@@ -47,7 +48,7 @@ const TASK_MARK_COLOUR = 0xffc857;
 /** How close (in tiles) the player must be to use an object. */
 const USE_RANGE_TILES = 1.6;
 
-type KeyName = 'W' | 'A' | 'S' | 'D' | 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'E' | 'SPACE' | 'Q' | 'R' | 'ENTER';
+type KeyName = 'W' | 'A' | 'S' | 'D' | 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'E' | 'SPACE' | 'Q' | 'R' | 'V' | 'ENTER';
 
 export class PlayScene extends Phaser.Scene {
   static readonly KEY = 'Play';
@@ -125,7 +126,7 @@ export class PlayScene extends Phaser.Scene {
     keyboard.enabled = true;
     keyboard.resetKeys();
     keyboard.addCapture(CAPTURED_KEYS);
-    this.keys = keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE,Q,R,ENTER') as PlayScene['keys'];
+    this.keys = keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE,Q,R,V,ENTER') as PlayScene['keys'];
 
     const playerView = this.unitViews[0] as UnitView;
     const cam = this.cameras.main;
@@ -217,8 +218,14 @@ export class PlayScene extends Phaser.Scene {
       if (!u || !p || !view) continue;
       view.apply(Phaser.Math.Linear(p.x, u.x, alpha), Phaser.Math.Linear(p.y, u.y, alpha), u);
       view.setGhost(!u.alive);
-      // Ghosts are only visible to the dead (and in F3).
-      view.setVisible(u.alive || !player.alive || this.debugOn);
+      view.setInVent(u.inVent !== null);
+      // Ghosts are only visible to the dead (and in F3); anyone in a vent is hidden (except in F3),
+      // though you always see yourself.
+      let visible: boolean;
+      if (u.isPlayer) visible = true;
+      else if (u.inVent !== null) visible = this.debugOn;
+      else visible = u.alive || !player.alive || this.debugOn;
+      view.setVisible(visible);
     }
     this.syncBodies();
     this.drawProgressRing(player);
@@ -331,12 +338,30 @@ export class PlayScene extends Phaser.Scene {
       if (ev.kind === 'kill') {
         if (ev.victimId === player.id) this.cameras.main.flash(500, 180, 20, 20);
         else if (ev.killerId === player.id) this.cameras.main.shake(150, 0.004);
+      } else if (ev.kind === 'ventEnter' || ev.kind === 'ventExit') {
+        this.mapView.ventUsed(ev.ventId);
+        // Climbing in snaps the unit onto the grate: no gliding there.
+        if (ev.unitId === player.id) this.snapPlayerView();
+      } else if (ev.kind === 'ventHop') {
+        if (ev.unitId === player.id) this.snapPlayerView();
       } else if (ev.kind === 'meetingStart') {
         this.cameras.main.flash(300, 255, 255, 255);
       } else if (ev.kind === 'gameOver') {
         this.cameras.main.fade(600, 5, 7, 12, false);
       }
     }
+  }
+
+  /** Puts the player's picture and the camera exactly where the player is (after a vent hop). */
+  private snapPlayerView(): void {
+    const player = playerOf(this.sim);
+    const prev = this.prevPos[0];
+    if (prev) {
+      prev.x = player.x;
+      prev.y = player.y;
+    }
+    this.unitViews[0]?.apply(player.x, player.y, player);
+    this.cameras.main.centerOn(player.x, player.y);
   }
 
   /** Keeps one body view per body in the simulation. */
@@ -393,10 +418,18 @@ export class PlayScene extends Phaser.Scene {
       const near = this.nearestUsableObject(player.x, player.y);
       if (near) prompts.push(near.type === 'computer' ? 'E: use the settings computer' : near.type === 'start' ? 'E: start the game' : `E: use ${near.type}`);
     } else if (this.sim.phase === 'play' && !this.isMeetingOpen) {
+      if (player.alive && player.inVent !== null) {
+        prompts.push('V: climb out of the vent');
+        prompts.push('WASD / arrows: move to the next vent that way');
+        this.prompts_ = prompts;
+        return;
+      }
       if (player.alive) {
         if (player.role === 'impostor') {
           const target = findKillTarget(this.sim, player, gameConfig);
           if (target && player.killCooldownTicks <= 0) prompts.push(`Q: kill ${target.name}`);
+          const vent = ventInReach(player, this.map, gameConfig);
+          if (vent) prompts.push('V: climb into the vent');
         }
         if (bodiesInReach(this.sim, player, gameConfig).length > 0) prompts.push('R: report body');
         if (nearButton(player, this.map, gameConfig)) {
@@ -506,13 +539,24 @@ export class PlayScene extends Phaser.Scene {
     const usePressed = Phaser.Input.Keyboard.JustDown(k.E) || Phaser.Input.Keyboard.JustDown(k.SPACE);
     const killPressed = Phaser.Input.Keyboard.JustDown(k.Q);
     const reportPressed = Phaser.Input.Keyboard.JustDown(k.R);
+    const ventPressed = Phaser.Input.Keyboard.JustDown(k.V);
     const continueKey = Phaser.Input.Keyboard.JustDown(k.ENTER);
+    // Inside a vent the direction keys hop between vents on a press, rather than walking.
+    if (this.mode === 'game' && playerOf(this.sim).inVent !== null) {
+      let ventDx = 0;
+      let ventDy = 0;
+      if (Phaser.Input.Keyboard.JustDown(k.A) || Phaser.Input.Keyboard.JustDown(k.LEFT)) ventDx -= 1;
+      if (Phaser.Input.Keyboard.JustDown(k.D) || Phaser.Input.Keyboard.JustDown(k.RIGHT)) ventDx += 1;
+      if (Phaser.Input.Keyboard.JustDown(k.W) || Phaser.Input.Keyboard.JustDown(k.UP)) ventDy -= 1;
+      if (Phaser.Input.Keyboard.JustDown(k.S) || Phaser.Input.Keyboard.JustDown(k.DOWN)) ventDy += 1;
+      return { dx: 0, dy: 0, ventPressed, ventDx, ventDy, continueKey };
+    }
     // Holding a task key means standing still: you cannot walk and work at once.
     if (useHeld && this.mode === 'game' && reachableStage(playerOf(this.sim), this.map, gameConfig)) {
       dx = 0;
       dy = 0;
     }
-    return { dx, dy, useHeld, usePressed, killPressed, reportPressed, continueKey };
+    return { dx, dy, useHeld, usePressed, killPressed, reportPressed, ventPressed, continueKey };
   }
 }
 

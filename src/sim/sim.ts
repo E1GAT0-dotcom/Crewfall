@@ -21,6 +21,7 @@ import { moveWithCollision, normalizeDirection, type Vec2 } from './movement';
 import { Rng } from './rng';
 import type { GameSettings } from './settings';
 import { buildTaskList, chooseCommonTypes, countStages, type Task, type TaskStage } from './tasks';
+import { tryEnterVent, tryExitVent, tryVentHop } from './vents';
 
 export type Role = 'crew' | 'impostor';
 
@@ -48,6 +49,7 @@ export interface SimConfig {
     readonly useRangeTiles: number;
     readonly taskRangeTiles: number;
     readonly playerTaskSpeed: number;
+    readonly ventRangeTiles: number;
   };
   readonly bots: {
     readonly waypointTolerancePx: number;
@@ -92,6 +94,11 @@ export interface PlayerInput {
   readonly usePressed?: boolean;
   readonly killPressed?: boolean;
   readonly reportPressed?: boolean;
+  /** Vent key just pressed: climb into a vent in reach, or out of the one you are in. */
+  readonly ventPressed?: boolean;
+  /** Inside a vent: a direction just pressed, to hop to the next vent that way (-1, 0 or 1 each). */
+  readonly ventDx?: number;
+  readonly ventDy?: number;
   /** Meeting: a vote to cast this tick (a unit id or 'skip'). */
   readonly voteFor?: Vote;
   /** Meeting: a chat line to send this tick. */
@@ -125,6 +132,8 @@ export interface Unit {
   killCooldownTicks: number;
   /** Emergency meetings this unit may still call. */
   meetingsLeft: number;
+  /** Id of the vent this unit is hiding in, or null. Only impostors ever vent. */
+  inVent: string | null;
 }
 
 export interface PlayerTaskProgress {
@@ -208,6 +217,7 @@ export function createGame(map: GameMap, settings: GameSettings, seed: number, c
       tasks: mode === 'lobby' ? [] : buildTaskList(map, rng, commonTypes, counts, id),
       killCooldownTicks: role === 'impostor' ? initialCooldown : 0,
       meetingsLeft: mode === 'lobby' ? 0 : settings.emergencyMeetings,
+      inVent: null,
     });
   }
   const personalities = assignPersonalities(count - 1, rng);
@@ -252,9 +262,17 @@ export function stepSim(state: SimState, input: PlayerInput, map: GameMap, confi
 
   const speed = unitSpeedPxPerTick(state, config);
   const player = state.units[PLAYER_ID] as Unit;
-  moveUnit(player, clamp1(input.dx), clamp1(input.dy), speed, map, config);
+  let climbedOut = false;
+  if (player.inVent !== null) {
+    // Inside a vent: no walking; the vent key climbs out, a direction press hops along the network.
+    player.moving = false;
+    if (input.ventPressed) climbedOut = tryExitVent(state, player, map);
+    else if (input.ventDx || input.ventDy) tryVentHop(state, player, clamp1(input.ventDx ?? 0), clamp1(input.ventDy ?? 0), map);
+  } else {
+    moveUnit(player, clamp1(input.dx), clamp1(input.dy), speed, map, config);
+  }
 
-  if (state.mode === 'game') {
+  if (state.mode === 'game' && player.inVent === null) {
     if (player.alive) {
       if (input.killPressed && player.role === 'impostor') {
         const target = findKillTarget(state, player, config);
@@ -262,6 +280,8 @@ export function stepSim(state: SimState, input: PlayerInput, map: GameMap, confi
       }
       if (input.reportPressed) tryReport(state, player, map, config);
       if (input.usePressed && state.phase === 'play') tryCallMeeting(state, player, map, config);
+      // The press that climbed out this tick must not climb straight back in.
+      if (input.ventPressed && !climbedOut && state.phase === 'play') tryEnterVent(state, player, map, config);
     }
     if (state.phase === 'play') updatePlayerTask(state, player, input.useHeld === true, map, config);
   }

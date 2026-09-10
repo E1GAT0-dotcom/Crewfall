@@ -23,6 +23,8 @@ time, or type one to replay the same game (F3 shows the current seed).
 | E or Space | Use: settings computer, start pad, emergency button. Hold to do a task |
 | R | Report a body you are standing next to |
 | Q | Kill (impostors only, when the cooldown is ready and someone is in reach) |
+| V | Climb into a vent you are standing next to, or out of the one you are in (impostors only) |
+| WASD / arrows (in a vent) | Hop to the next connected vent in that direction |
 | Enter | In a meeting: focus the chat box, then send |
 | Esc | Back to the lobby (in a match) |
 | Tab (hold) | Show the full map (in a match) |
@@ -56,6 +58,15 @@ A body stays where it fell. Anyone alive standing next to a body can press R to 
 press E at the red emergency button in Cafeteria to call a meeting. Bots do the same: crew bots
 report bodies they see; impostor bots kill when nobody could be watching.
 
+## Vents (impostors)
+The dark grates on the floor are vents. Stand next to one and press V to climb in: you shrink into
+the grate and nobody can see you. Vents come in small networks; press a direction to hop to the
+connected vent that way (hold Tab to see the vents and their links), and V again to climb out.
+Inside a vent you cannot kill, report or do anything else. Be careful: any bot that sees you climb
+in or out knows for certain you are an impostor and will say so at the next meeting. Impostor bots
+use vents the same way, usually right after a kill, so a crewmate who watches the grates can catch
+one.
+
 ## Ghosts
 When you die you become a ghost: you can still walk around and finish your tasks, which still
 count for the crew. Only other ghosts can see you.
@@ -76,6 +87,8 @@ Bots understand plain typed sentences. Things that work:
 - Say what you saw: "i saw Bix in electrical", "Bix was in storage".
 - Ask someone: "where were you Eve?", or just "Eve?".
 - Give up: "skip", "no info".
+When a bot says it saw someone kill or vent, the other bots believe it far more than a plain
+accusation: two such witnesses will get someone voted out.
 Names and colours can be shortened ("tri", "pur") and typos of one letter are forgiven. A bot you
 question or accuse answers within a few seconds, in its own personality. Bots remember what you
 claim and will call you out if it clashes with what they saw. Anything they cannot understand gets

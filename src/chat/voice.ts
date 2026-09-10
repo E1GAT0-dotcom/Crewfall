@@ -132,6 +132,10 @@ export function chooseLine(bot: BotState, unit: Unit, state: SimState, m: Meetin
       intent = 'accuse_witnessed';
       if (detail?.room) withDetail.room = detail.room;
       if (detail?.tick !== undefined) withDetail.time = clock(detail.tick, config.tickRate);
+    } else if (strongest?.kind === 'sawVent') {
+      intent = 'accuse_vent';
+      if (detail?.room) withDetail.room = detail.room;
+      if (detail?.tick !== undefined) withDetail.time = clock(detail.tick, config.tickRate);
     } else if (strongest?.kind === 'leftBodyRoom') {
       intent = 'accuse_left';
       if (detail?.room) withDetail.room = detail.room;
@@ -149,7 +153,8 @@ export function chooseLine(bot: BotState, unit: Unit, state: SimState, m: Meetin
       withDetail.other_room = detail.otherRoom;
     }
     (c.accusedBy[unit.id] ??= []).push(target.id);
-    const claim: NewClaim = { speakerId: unit.id, kind: 'accuse', subjectId: target.id, room: null, otherId: null, fromTick: window.fromTick, toTick: window.toTick };
+    const witnessed = intent === 'accuse_witnessed' || intent === 'accuse_vent';
+    const claim: NewClaim = { speakerId: unit.id, kind: 'accuse', subjectId: target.id, room: null, otherId: null, fromTick: window.fromTick, toTick: window.toTick, witnessed };
     const line = say(intent, { ...slots, ...withDetail }, { claim }, `accusing ${name(target.id)}: ${target.reason}`);
     if (line) return line;
     return say('accuse_other', slots, { claim }, `accusing ${name(target.id)}: ${target.reason}`);

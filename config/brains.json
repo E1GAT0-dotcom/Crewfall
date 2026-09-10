@@ -12,7 +12,10 @@
     "crew.buddy: how long (seconds) a buddying stretch lasts and how close to stay. crew.fear: top suspect within this many tiles with nobody else near makes a bot walk to company.",
     "claims.alibiSlackSec: an alibi (\"i was in Medbay\") covers the moment of the death plus or minus this many seconds.",
     "perception.killNoticeRangeTiles: a kill is only noticed (and only counts as witnessed) within this distance; at the far edge of a zoomed-out screen nobody spots it.",
-    "impostor.easyAloneRangeTiles: an easy impostor only strikes when nobody but the victim is within this distance."
+    "impostor.easyAloneRangeTiles: an easy impostor only strikes when nobody but the victim is within this distance.",
+    "perception.ventNoticeRangeTiles: someone climbing into or out of a vent is only noticed within this distance.",
+    "difficulty.ventAfterKillChance: how often an impostor bot slips into a nearby vent right after a kill (sloppy impostors do it even when someone could see).",
+    "impostor.vent: afterKillRangeTiles is how far it will walk to a vent after a kill; insideSec [min, max] is how long it hides before climbing out; maxWaitInsideSec caps waiting for the coast to clear."
   ],
   "difficulty": {
     "easy": {
@@ -23,7 +26,8 @@
       "crossCheckClaims": 0.3,
       "playerTargeting": "random",
       "selfReportChance": 0,
-      "fakeVisualTaskChance": 0.4
+      "fakeVisualTaskChance": 0.4,
+      "ventAfterKillChance": 0.6
     },
     "normal": {
       "memoryAccuracy": 0.9,
@@ -33,7 +37,8 @@
       "crossCheckClaims": 0.8,
       "playerTargeting": "normal",
       "selfReportChance": 0,
-      "fakeVisualTaskChance": 0
+      "fakeVisualTaskChance": 0,
+      "ventAfterKillChance": 0.7
     },
     "hard": {
       "memoryAccuracy": 1,
@@ -43,7 +48,8 @@
       "crossCheckClaims": 1,
       "playerTargeting": "prioritize",
       "selfReportChance": 0.25,
-      "fakeVisualTaskChance": 0
+      "fakeVisualTaskChance": 0,
+      "ventAfterKillChance": 0.8
     }
   },
   "perception": {
@@ -52,7 +58,8 @@
     "bodyRangeTiles": 2.5,
     "minSightingSec": 0.5,
     "maxSightingsPerBot": 400,
-    "killNoticeRangeTiles": 10
+    "killNoticeRangeTiles": 10,
+    "ventNoticeRangeTiles": 10
   },
   "claims": {
     "windowSec": 45,
@@ -91,6 +98,14 @@
     ],
     "fleeAfterKillTiles": 12,
     "avoidPlayerAloneOnHard": true,
-    "easyAloneRangeTiles": 15
+    "easyAloneRangeTiles": 15,
+    "vent": {
+      "afterKillRangeTiles": 8,
+      "insideSec": [
+        1.5,
+        4
+      ],
+      "maxWaitInsideSec": 10
+    }
   }
 }

@@ -220,7 +220,8 @@ describe('bot feel (Greg, 2026-09-07: not robots)', () => {
       stepSim(s, NO_INPUT, map, config);
       for (const b of s.bots) if (b.pauseTicks > 0 && b.goal.kind !== 'idle') pausedTicks.set(b.unitId, (pausedTicks.get(b.unitId) ?? 0) + 1);
     }
-    for (const b of s.bots) expect(pausedTicks.get(b.unitId) ?? 0, `bot ${b.unitId}`).toBeGreaterThan(0);
+    // Crew bots only: an impostor on the hunt is allowed to be all business.
+    for (const b of s.bots) if (s.units[b.unitId]!.role === 'crew') expect(pausedTicks.get(b.unitId) ?? 0, `bot ${b.unitId}`).toBeGreaterThan(0);
     expect(s.crewTasks.done).toBeGreaterThan(0);
   });
 

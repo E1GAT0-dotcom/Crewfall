@@ -2,6 +2,7 @@
   "_help": [
     "The suspicion model (SPEC 9.7). Suspicion runs 0-100 per bot per target; trust runs 0-1 and starts at 0.5.",
     "weights: how much each piece of evidence moves suspicion. 'certain' locks it at 100 for good; 'cleared' locks it at 0.",
+    "  accusedByTrustedBot and accusedByWitness are scaled by trust in the accuser (0-1). A witness is a bot saying it watched a kill or a vent.",
     "trust: how much a matching or clashing claim moves trust in the speaker.",
     "windows: seconds. bodyRoomLeave: seen leaving the body's room this long before the report counts.",
     "  lastSeenWith: the last sighting of the victim must end within this long before the report to count.",
@@ -16,6 +17,7 @@
     "lastSeenWithVictim": 30,
     "contradiction": 40,
     "accusedByTrustedBot": 15,
+    "accusedByWitness": 60,
     "accusedByPlayer": 10,
     "selfReport": 10,
     "shadowing": 10,

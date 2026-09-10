@@ -36,6 +36,8 @@ export interface Claim {
   /** The time the claim covers. */
   readonly fromTick: number;
   readonly toTick: number;
+  /** For 'accuse': the speaker says they watched it happen (a kill or a vent), not just a hunch. */
+  readonly witnessed?: boolean;
 }
 
 export interface Contradiction {
@@ -142,7 +144,7 @@ export function broadcastClaim(state: SimState, claim: Omit<Claim, 'id' | 'tick'
     const unit = state.units[bot.unitId];
     if (!unit || !unit.alive || unit.id === full.speakerId) continue;
     if (full.kind === 'accuse') {
-      if (speaker) onAccusation(bot.social, unit.id, speaker, full.subjectId, state, personality(bot.personality).playerAccusationScale);
+      if (speaker) onAccusation(bot.social, unit.id, speaker, full.subjectId, state, personality(bot.personality).playerAccusationScale, full.witnessed === true);
       continue;
     }
     // Cross-checking takes effort: easy bots often let a claim slide (SPEC 9.12).

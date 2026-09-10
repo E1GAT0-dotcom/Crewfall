@@ -20,6 +20,11 @@ export type SimEvent =
   | { kind: 'kill'; killerId: number; victimId: number; x: number; y: number }
   | { kind: 'taskStage'; unitId: number; taskId: string; taskDone: boolean }
   | { kind: 'gameOver'; winner: 'crew' | 'impostor'; reason: 'tasks' | 'ejected' | 'numbers' | 'sabotage' }
+  /** Someone climbed into or out of a vent at (x, y): witnesses can see this. */
+  | { kind: 'ventEnter'; unitId: number; ventId: string; x: number; y: number }
+  | { kind: 'ventExit'; unitId: number; ventId: string; x: number; y: number }
+  /** Someone moved along the vents. Silent. */
+  | { kind: 'ventHop'; unitId: number; fromVentId: string; toVentId: string }
   | MeetingEvent;
 
 export function killRangePx(state: SimState, config: SimConfig): number {
@@ -35,8 +40,9 @@ export function findKillTarget(state: SimState, killer: Unit, config: SimConfig)
   const range = killRangePx(state, config);
   let best: Unit | null = null;
   let bestDist = Infinity;
+  if (killer.inVent !== null) return null;
   for (const u of state.units) {
-    if (u.id === killer.id || !u.alive || u.role === 'impostor') continue;
+    if (u.id === killer.id || !u.alive || u.role === 'impostor' || u.inVent !== null) continue;
     const d = distance(killer, u);
     if (d <= range && d < bestDist) {
       best = u;
@@ -52,8 +58,10 @@ export function canKill(state: SimState, killer: Unit, victim: Unit, config: Sim
     killer.alive &&
     killer.role === 'impostor' &&
     killer.killCooldownTicks <= 0 &&
+    killer.inVent === null &&
     victim.alive &&
     victim.role === 'crew' &&
+    victim.inVent === null &&
     distance(killer, victim) <= killRangePx(state, config)
   );
 }
@@ -85,7 +93,7 @@ export function bodiesInReach(state: SimState, unit: Unit, config: SimConfig): B
 
 /** Reports the nearest body in reach, starting a meeting. False if there is none or the unit may not. */
 export function tryReport(state: SimState, reporter: Unit, map: GameMap, config: SimConfig): boolean {
-  if (state.phase !== 'play' || !reporter.alive) return false;
+  if (state.phase !== 'play' || !reporter.alive || reporter.inVent !== null) return false;
   const bodies = bodiesInReach(state, reporter, config);
   if (bodies.length === 0) return false;
   bodies.sort((a, b) => distance(reporter, a) - distance(reporter, b));
@@ -103,7 +111,7 @@ export function nearButton(unit: Unit, map: GameMap, config: SimConfig): boolean
 
 /** Calls an emergency meeting if the unit is alive, has one left, and is at the button. */
 export function tryCallMeeting(state: SimState, caller: Unit, map: GameMap, config: SimConfig): boolean {
-  if (state.phase !== 'play' || !caller.alive || caller.meetingsLeft <= 0 || !nearButton(caller, map, config)) return false;
+  if (state.phase !== 'play' || !caller.alive || caller.inVent !== null || caller.meetingsLeft <= 0 || !nearButton(caller, map, config)) return false;
   caller.meetingsLeft--;
   startMeeting(state, caller, 'button', null, map, config);
   return true;
@@ -117,6 +125,7 @@ export interface ReachableStage {
 
 /** The unit's next task stage whose spot is within reach, nearest first. */
 export function reachableStage(unit: Unit, map: GameMap, config: SimConfig): ReachableStage | null {
+  if (unit.inVent !== null) return null;
   const range = config.rules.taskRangeTiles * map.tileSize;
   const half = map.tileSize / 2;
   let best: ReachableStage | null = null;

@@ -31,8 +31,9 @@ export interface SocialModel {
   /** Targets locked at 0 (seen doing a visual task). */
   cleared: Record<number, boolean>;
   evidence: EvidenceRecord[];
-  /** How many witnessed kills have already been turned into evidence. */
+  /** How many witnessed kills / vent uses have already been turned into evidence. */
   killsProcessed: number;
+  ventsProcessed: number;
   /** Last tick each target was flagged for shadowing, for the rearm delay. */
   shadowFlaggedTick: Record<number, number>;
   /** Filled by the voting logic (step 3). */
@@ -40,7 +41,7 @@ export interface SocialModel {
 }
 
 export function createSocial(): SocialModel {
-  return { suspicion: {}, trust: {}, certain: {}, cleared: {}, evidence: [], killsProcessed: 0, shadowFlaggedTick: {}, lastVoteReason: null };
+  return { suspicion: {}, trust: {}, certain: {}, cleared: {}, evidence: [], killsProcessed: 0, ventsProcessed: 0, shadowFlaggedTick: {}, lastVoteReason: null };
 }
 
 export function suspicionOf(social: SocialModel, targetId: number): number {
@@ -100,6 +101,12 @@ export function tickSocial(social: SocialModel, memory: BotMemory, me: Unit, sta
     const killer = state.units[k.killerId]?.name ?? '?';
     const victim = state.units[k.victimId]?.name ?? '?';
     addEvidence(social, k.killerId, 'witnessedKill', `I saw ${killer} kill ${victim} in ${k.room} at ${clock(k.tick, rate)}`, state.tick, 1, { room: k.room, tick: k.tick });
+  }
+  for (; social.ventsProcessed < memory.vents.length; social.ventsProcessed++) {
+    const v = memory.vents[social.ventsProcessed]!;
+    const who = state.units[v.unitId]?.name ?? '?';
+    const how = v.action === 'enter' ? 'climb into' : 'climb out of';
+    addEvidence(social, v.unitId, 'sawVent', `I saw ${who} ${how} a vent in ${v.room} at ${clock(v.tick, rate)}`, state.tick, 1, { room: v.room, tick: v.tick });
   }
   const w = SUSPICION.windows;
   const shadowTicks = Math.round(w.shadowSec * rate);
@@ -200,13 +207,19 @@ export function onClaimChecked(social: SocialModel, claim: Claim, contradiction:
   }
 }
 
-/** Someone accused someone: bots weigh it by how much they trust the accuser (the player has a fixed weight). */
-export function onAccusation(social: SocialModel, meId: number, accuser: Unit, targetId: number, state: SimState, playerScale = 1): void {
+/**
+ * Someone accused someone: bots weigh it by how much they trust the accuser (the player has a fixed
+ * weight). A bot saying it watched the deed (a kill, a vent) counts for far more than a hunch.
+ */
+export function onAccusation(social: SocialModel, meId: number, accuser: Unit, targetId: number, state: SimState, playerScale = 1, witnessed = false): void {
   if (accuser.id === meId || targetId === meId) return;
   const target = state.units[targetId];
   if (!target) return;
   if (accuser.isPlayer) {
     addEvidence(social, targetId, 'accusedByPlayer', `${accuser.name} accused ${target.name}`, state.tick, playerScale);
+  } else if (witnessed) {
+    const t = trustIn(social, accuser.id);
+    addEvidence(social, targetId, 'accusedByWitness', `${accuser.name} says they saw ${target.name} do it (I trust ${accuser.name} ${Math.round(t * 100)}%)`, state.tick, t);
   } else {
     const t = trustIn(social, accuser.id);
     addEvidence(social, targetId, 'accusedByTrustedBot', `${accuser.name} accused ${target.name} (I trust ${accuser.name} ${Math.round(t * 100)}%)`, state.tick, t);

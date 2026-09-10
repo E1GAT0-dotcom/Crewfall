@@ -39,9 +39,13 @@ export class MapView {
   readonly layer: Phaser.Tilemaps.TilemapLayer;
   readonly widthPx: number;
   readonly heightPx: number;
+  private readonly scene: Phaser.Scene;
+  /** The lid of each vent grate, by vent id, so it can pop open when the vent is used. */
+  private readonly ventLids = new Map<string, Phaser.GameObjects.Graphics>();
 
   constructor(scene: Phaser.Scene, map: GameMap) {
     const ts = map.tileSize;
+    this.scene = scene;
     this.widthPx = map.width * ts;
     this.heightPx = map.height * ts;
 
@@ -93,6 +97,17 @@ export class MapView {
       g.fillStyle(COLORS.consoleScreen, 0.9).fillRect(x + 10, y + 9, ts - 20, 8);
       g.fillStyle(0x596279, 1).fillRect(x + 10, y + 20, 4, 3).fillRect(x + 16, y + 20, 4, 3);
     }
+    // Vents: a dark floor grate with slats. The lid is its own drawing so it can pop open.
+    for (const vent of map.vents) {
+      const cx = vent.pos[0] * ts + ts / 2;
+      const cy = vent.pos[1] * ts + ts / 2;
+      g.fillStyle(0x111419, 1).fillRoundedRect(cx - ts * 0.42, cy - ts * 0.34, ts * 0.84, ts * 0.68, 4);
+      const lid = scene.add.graphics({ x: cx, y: cy }).setDepth(2.5);
+      lid.fillStyle(COLORS.wallSolid, 1).fillRoundedRect(-ts * 0.38, -ts * 0.3, ts * 0.76, ts * 0.6, 3);
+      lid.fillStyle(0x4d566c, 1);
+      for (let i = 0; i < 4; i++) lid.fillRect(-ts * 0.3, -ts * 0.22 + i * ts * 0.14, ts * 0.6, 3);
+      this.ventLids.set(vent.id, lid);
+    }
     // Emergency button: a red disc on its tile.
     if (map.button) {
       const [bx, by] = map.button;
@@ -124,6 +139,15 @@ export class MapView {
         g.fillStyle(0x596279, 1).fillRect(x + 2, y + 2, w - 4, h - 4);
       }
     }
+  }
+
+  /** Pops a vent's lid open and shut: someone just climbed in or out. */
+  ventUsed(ventId: string): void {
+    const lid = this.ventLids.get(ventId);
+    if (!lid) return;
+    this.scene.tweens.killTweensOf(lid);
+    lid.setScale(1, 1);
+    this.scene.tweens.add({ targets: lid, scaleY: 0.15, duration: 120, yoyo: true, hold: 220, ease: 'Quad.easeOut' });
   }
 
   /** Which wall look a wall tile gets, from where the floor is around it. */

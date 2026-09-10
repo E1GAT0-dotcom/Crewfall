@@ -339,3 +339,36 @@ for nobody to be in sight at all, so easy now means nobody within `impostor.easy
 player's seat becomes a bot with its own personality) and prints crew and impostor wins, endings by
 reason, average length, meetings, kills and ejection accuracy, then says whether the crew win rate
 is inside the 35–65% band. Any settings key can be passed as `--key value`. About a second a game.
+
+## 2026-09-09 — Phase 4 plan approved (Greg: "go")
+Five steps: vents; sabotage core with Lights and Comms; Reactor and O2; doors and the button; the
+simulator retune, F3 and docs. Greg went with the recommendations: lights-out is a small lit shape
+cut by walls at a quarter of normal reach with the camera unchanged; vent travel is an instant hop
+with a short in-and-out placeholder; the fix panels are small pop-ups (switches, hold E, a keypad).
+
+## 2026-09-09 — Vents
+- A vent is used from next to it (`rules.ventRangeTiles`, 1.3 tiles), the same reach as a task.
+- Travel is an instant hop: a direction press picks the connected vent most in that direction (it
+  must lie at least a little that way, so pressing away from every vent does nothing). A hop is
+  silent; only climbing in and out can be seen, within `perception.ventNoticeRangeTiles` (10).
+- Inside a vent you cannot kill, be killed, report, do tasks or press the button, and you see nothing.
+  The kill cooldown keeps counting inside (keeps it simple; the balance run stayed at 50%).
+- A meeting pulls everyone out of the vents quietly: no bot records it as a vent use.
+- The climb is a placeholder: the unit shrinks into the grate and the lid pops. Phase 7 replaces it.
+- Ghosts and F3 see vented units; live players never do (except yourself).
+
+## 2026-09-09 — "I saw it" accusations weigh more
+The first vent scenario had two bots say "I saw You vent" and the vote still tied with skips: a
+bot's accusation moved the others by only 15 × trust (7.5). A bot claiming it watched a kill or a
+vent is now a `witnessed` claim, weighed at `accusedByWitness` (60) × trust, so two witnesses
+convince everyone and one convinces the quick-to-judge. Impostor bots never make witnessed claims
+(their accusations are hunches), so this cannot be faked by them; the player's typed accusations
+keep their own weight, since the player can lie.
+
+## 2026-09-09 — Impostor bots and vents
+After a kill an impostor bot heads for a vent within `impostor.vent.afterKillRangeTiles` (8) with
+the difficulty's `ventAfterKillChance` (easy 0.6, normal 0.7, hard 0.8). Careful (normal, hard)
+impostors only climb in when nobody could see the grate and pick an exit nobody is watching; inside
+they wait `insideSec` (1.5–4 s), and if the exit is watched they try the other vents of the network
+once a second for up to `maxWaitInsideSec` (10 s) before coming out anyway. Sloppy (easy) impostors
+ignore watchers at both ends, which is how easy players catch them.

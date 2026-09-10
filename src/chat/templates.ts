@@ -14,6 +14,7 @@ export type VoiceIntent =
   | 'alibi'
   | 'alibi_answer'
   | 'accuse_witnessed'
+  | 'accuse_vent'
   | 'accuse_left'
   | 'accuse_lastwith'
   | 'accuse_contra'

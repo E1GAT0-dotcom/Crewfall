@@ -91,7 +91,7 @@ describe('the player parser (SPEC 9.10)', () => {
 
 describe('the voice files', () => {
   it('have at least six lines per intent per style and fill their slots cleanly', () => {
-    const intents: VoiceIntent[] = ['open_body', 'open_button', 'alibi', 'alibi_answer', 'accuse_witnessed', 'accuse_left', 'accuse_lastwith', 'accuse_contra', 'accuse_other', 'corroborate', 'contradict', 'question', 'defend', 'deflect', 'skip', 'follow', 'react_eject_right', 'react_eject_wrong', 'react_noeject', 'reply', 'voted'];
+    const intents: VoiceIntent[] = ['open_body', 'open_button', 'alibi', 'alibi_answer', 'accuse_witnessed', 'accuse_vent', 'accuse_left', 'accuse_lastwith', 'accuse_contra', 'accuse_other', 'corroborate', 'contradict', 'question', 'defend', 'deflect', 'skip', 'follow', 'react_eject_right', 'react_eject_wrong', 'react_noeject', 'reply', 'voted'];
     expect([...VOICE_STYLES].sort()).toEqual(['aggressive', 'analyst', 'follower', 'joker', 'nervous', 'quiet']);
     const slots = { name: 'Me', room: 'Medbay', other_room: 'Storage', victim: 'Vic', caller: 'Cal', other: 'Oth', accuser: 'Acc', time: '2:10', ago: '12 s' };
     for (const intent of intents) {

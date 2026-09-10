@@ -16,6 +16,8 @@ export class UnitView {
   private readonly label: Phaser.GameObjects.Text;
   private currentAnim: Anim | null = null;
   private ghost = false;
+  private inVent = false;
+  private readonly scene: Phaser.Scene;
 
   /**
    * @param frameOriginY where in the 64 px frame the unit's collision centre sits (0..1).
@@ -23,6 +25,7 @@ export class UnitView {
    *   collision circle on the lower body so the unit's feet stop at walls, not its visor.
    */
   constructor(scene: Phaser.Scene, colour: number, name: string, frameOriginY = 0.6) {
+    this.scene = scene;
     this.base = scene.add.sprite(0, 0, unitSheet('base', 'idle')).setOrigin(0.5, frameOriginY).setTint(colour);
     this.detail = scene.add.sprite(0, 0, unitSheet('detail', 'idle')).setOrigin(0.5, frameOriginY);
     this.label = scene.add
@@ -48,6 +51,19 @@ export class UnitView {
     if (this.ghost === ghost) return;
     this.ghost = ghost;
     this.container.setAlpha(ghost ? GHOST_ALPHA : 1);
+  }
+
+  /**
+   * In a vent the unit shrinks into the grate (placeholder for the Phase 7 climb animation). Only
+   * the unit's own player sees this; everyone else sees nothing at all.
+   */
+  setInVent(inVent: boolean): void {
+    if (this.inVent === inVent) return;
+    this.inVent = inVent;
+    const scale = inVent ? 0.45 : 1;
+    this.scene.tweens.killTweensOf([this.base, this.detail]);
+    this.scene.tweens.add({ targets: [this.base, this.detail], scaleX: scale, scaleY: scale, alpha: inVent ? 0.6 : 1, duration: 180, ease: 'Quad.easeOut' });
+    this.label.setAlpha(inVent ? 0.5 : 1);
   }
 
   /** Shows the body frame at a fixed spot. */

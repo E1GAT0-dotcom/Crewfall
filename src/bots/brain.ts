@@ -24,6 +24,7 @@ import type { Rng } from '../sim/rng';
 import { completeStage, moveUnit, unitSpeedPxPerTick, unitTile, type SimConfig, type SimState, type Unit } from '../sim/sim';
 import { nextStage, TASK_LABELS, VISUAL_TASKS, type Task } from '../sim/tasks';
 import { canSee, visionRadiusPx } from '../sim/vision';
+import { hopToVent, tryEnterVent, tryExitVent, ventById, ventCentre, ventInReach, ventNeighbours } from '../sim/vents';
 import type { Alibi } from './decisions';
 import { accusersOf } from './decisions';
 import { createMemory, type BotMemory } from './memory';
@@ -41,7 +42,9 @@ export type BotGoal =
   | { kind: 'hunt'; targetId: number; label: string }
   | { kind: 'follow'; targetId: number; untilTick: number; label: string }
   | { kind: 'flee'; fromId: number; target: TilePos; label: string }
-  | { kind: 'button'; label: string };
+  | { kind: 'button'; label: string }
+  /** Impostor: walking to a vent, then hiding inside until the coast is clear (SPEC 9.6). */
+  | { kind: 'vent'; ventId: string; stage: 'walking' | 'inside'; waitedTicks: number; label: string };
 
 /** Per-bot movement character, rolled once per game. */
 export interface BotQuirks {
@@ -157,9 +160,15 @@ export function stepBot(bot: BotState, unit: Unit, state: SimState, map: GameMap
       if (bot.goal.kind !== 'report' && bot.goal.kind !== 'button') considerButton(bot, unit, state, map, config);
       if (bot.goal.kind !== 'report' && bot.goal.kind !== 'button' && bot.goal.kind !== 'flee') considerFear(bot, unit, state, map, config);
     } else {
-      if (bot.selfReportTick > 0 && state.tick >= bot.selfReportTick && bot.goal.kind !== 'report') selfReport(bot, unit, state, map, config);
-      if (bot.goal.kind !== 'hunt' && bot.goal.kind !== 'report' && unit.killCooldownTicks <= 0) considerHunting(bot, unit, state, map, config);
-      if (bot.goal.kind !== 'hunt' && bot.goal.kind !== 'report' && bot.goal.kind !== 'flee') considerAvoidingPlayer(bot, unit, state, map, config);
+      // Somehow inside a vent without a vent goal (never expected): climb out and think again.
+      if (unit.inVent !== null && bot.goal.kind !== 'vent') {
+        tryExitVent(state, unit, map);
+        resetBotGoal(bot);
+      }
+      const busy = bot.goal.kind === 'vent';
+      if (!busy && bot.selfReportTick > 0 && state.tick >= bot.selfReportTick && bot.goal.kind !== 'report') selfReport(bot, unit, state, map, config);
+      if (!busy && bot.goal.kind !== 'hunt' && bot.goal.kind !== 'report' && unit.killCooldownTicks <= 0) considerHunting(bot, unit, state, map, config);
+      if (!busy && bot.goal.kind !== 'hunt' && bot.goal.kind !== 'report' && bot.goal.kind !== 'flee') considerAvoidingPlayer(bot, unit, state, map, config);
     }
   }
 
@@ -188,6 +197,9 @@ export function stepBot(bot: BotState, unit: Unit, state: SimState, map: GameMap
     case 'button':
       stepButton(bot, unit, state, map, config);
       return;
+    case 'vent':
+      stepVent(bot, unit, state, map, config);
+      return;
     case 'idle':
       chooseGoal(bot, unit, state, map, config);
       if (bot.goal.kind === 'idle') {
@@ -214,8 +226,9 @@ function visibleBodies(unit: Unit, state: SimState, map: GameMap, config: SimCon
 }
 
 function visibleUnits(unit: Unit, state: SimState, map: GameMap, config: SimConfig): Unit[] {
+  if (unit.inVent !== null) return [];
   const radius = botSightRadius(unit, state, config);
-  return state.units.filter((u) => u.id !== unit.id && u.alive && canSee(map, unit.x, unit.y, radius, u.x, u.y));
+  return state.units.filter((u) => u.id !== unit.id && u.alive && u.inVent === null && canSee(map, unit.x, unit.y, radius, u.x, u.y));
 }
 
 // ---------- crew ----------
@@ -297,7 +310,7 @@ function considerFear(bot: BotState, unit: Unit, state: SimState, map: GameMap, 
   const top = topSuspect(bot.social, state, unit.id);
   if (!top || top.score < CREW.fear.minSuspicion) return;
   const suspect = state.units[top.id];
-  if (!suspect || !suspect.alive) return;
+  if (!suspect || !suspect.alive || suspect.inVent !== null) return;
   const range = CREW.fear.rangeTiles * map.tileSize;
   if (distance(unit, suspect) > range) return;
   const others = visibleUnits(unit, state, map, config).filter((u) => u.id !== suspect.id && distance(unit, u) <= range);
@@ -374,9 +387,14 @@ function stepFollow(bot: BotState, unit: Unit, state: SimState, map: GameMap, co
  * An impostor bot only kills when nobody could see it (SPEC 9.6).
  */
 export function witnessesOf(state: SimState, target: Unit, killer: Unit, map: GameMap, config: SimConfig): Unit[] {
-  const notice = brainsJson.perception.killNoticeRangeTiles * map.tileSize;
+  return watchersOf(state, target, brainsJson.perception.killNoticeRangeTiles, [target.id, killer.id], map, config);
+}
+
+/** Every living unit (not in a vent, not excluded) that could see a spot from where it stands. */
+export function watchersOf(state: SimState, spot: { x: number; y: number }, noticeTiles: number, exceptIds: readonly number[], map: GameMap, config: SimConfig): Unit[] {
+  const notice = noticeTiles * map.tileSize;
   return state.units.filter(
-    (u) => u.alive && u.id !== target.id && u.id !== killer.id && canSee(map, u.x, u.y, Math.min(notice, botSightRadius(u, state, config)), target.x, target.y),
+    (u) => u.alive && u.inVent === null && !exceptIds.includes(u.id) && canSee(map, u.x, u.y, Math.min(notice, botSightRadius(u, state, config)), spot.x, spot.y),
   );
 }
 
@@ -444,6 +462,8 @@ function stepHunt(bot: BotState, unit: Unit, state: SimState, map: GameMap, conf
       bot.pauseTicks = Math.round(state.rng.range(0.5, 1.5) * config.tickRate);
       return;
     }
+    // Vent away if there is one close by (SPEC 9.6), else walk off somewhere else.
+    if (considerVentAfterKill(bot, unit, state, map, config)) return;
     chooseGoal(bot, unit, state, map, config, true);
     return;
   }
@@ -452,6 +472,101 @@ function stepHunt(bot: BotState, unit: Unit, state: SimState, map: GameMap, conf
     bot.repathTick = state.tick + Math.round(config.bots.kill.repathSec * config.tickRate);
   }
   followPath(bot, unit, state, map, config);
+}
+
+/**
+ * Right after a kill: head for a vent within reach of the body, by the difficulty's chance. Careful
+ * impostors only do it when nobody could see the vent; sloppy (easy) ones do it regardless.
+ */
+function considerVentAfterKill(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): boolean {
+  const table = difficultyTable(state.settings.difficulty);
+  if (map.vents.length === 0 || !state.rng.chance(table.ventAfterKillChance)) return false;
+  const maxDist = IMPOSTOR.vent.afterKillRangeTiles * map.tileSize;
+  const options = map.vents
+    .map((v) => ({ v, d: distance(unit, ventCentre(v, map)) }))
+    .filter((o) => o.d <= maxDist)
+    .sort((a, b) => a.d - b.d);
+  for (const { v } of options) {
+    if (table.impostorFaking !== 'sloppy' && watchersOf(state, ventCentre(v, map), brainsJson.perception.ventNoticeRangeTiles, [unit.id], map, config).length > 0) continue;
+    if (!setPath(bot, unit, map, v.pos)) continue;
+    bot.goal = { kind: 'vent', ventId: v.id, stage: 'walking', waitedTicks: 0, label: `slipping into the ${v.room} vent` };
+    bot.waitTicks = 0;
+    bot.pauseTicks = 0;
+    bot.actionTicks = 0;
+    return true;
+  }
+  return false;
+}
+
+/** Walk to the vent, climb in, hop somewhere else on the network, wait, climb out when unwatched. */
+function stepVent(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
+  const goal = bot.goal as { kind: 'vent'; ventId: string; stage: 'walking' | 'inside'; waitedTicks: number; label: string };
+  const table = difficultyTable(state.settings.difficulty);
+  const sloppy = table.impostorFaking === 'sloppy';
+  const noticeTiles = brainsJson.perception.ventNoticeRangeTiles;
+  if (goal.stage === 'walking') {
+    const vent = ventInReach(unit, map, config);
+    if (vent && vent.id === goal.ventId) {
+      unit.moving = false;
+      // Careful impostors wait a moment for a watcher to leave rather than vent in front of them.
+      if (!sloppy && watchersOf(state, ventCentre(vent, map), noticeTiles, [unit.id], map, config).length > 0) {
+        goal.waitedTicks++;
+        if (goal.waitedTicks < Math.round(IMPOSTOR.vent.maxWaitInsideSec * config.tickRate)) return;
+        resetBotGoal(bot);
+        chooseGoal(bot, unit, state, map, config, true);
+        return;
+      }
+      if (!tryEnterVent(state, unit, map, config)) {
+        resetBotGoal(bot);
+        return;
+      }
+      // Hop to another vent on the network: one nobody is watching if possible, else any.
+      const here = ventById(map, unit.inVent as string);
+      const exits = here ? ventNeighbours(map, here) : [];
+      const clear = exits.filter((v) => watchersOf(state, ventCentre(v, map), noticeTiles, [unit.id], map, config).length === 0);
+      const pick = clear.length > 0 ? state.rng.pick(clear) : exits.length > 0 ? state.rng.pick(exits) : null;
+      if (pick) hopToVent(state, unit, pick, map);
+      const [i0, i1] = pair(IMPOSTOR.vent.insideSec, 1.5, 4);
+      bot.actionTicks = Math.round(state.rng.range(i0, i1) * config.tickRate);
+      goal.stage = 'inside';
+      goal.waitedTicks = 0;
+      goal.ventId = unit.inVent as string;
+      goal.label = `hiding in the ${pick?.room ?? here?.room ?? '?'} vent`;
+      return;
+    }
+    if (bot.pathIndex >= bot.path.length) {
+      // Arrived but the vent is not in reach (crowded or blocked): give up on venting.
+      resetBotGoal(bot);
+      return;
+    }
+    followPath(bot, unit, state, map, config);
+    return;
+  }
+  // Inside: wait out the hiding time, then climb out once nobody could see the grate.
+  unit.moving = false;
+  if (bot.actionTicks > 0) {
+    bot.actionTicks--;
+    return;
+  }
+  const watched = !sloppy && watchersOf(state, unit, noticeTiles, [unit.id], map, config).length > 0;
+  if (watched && goal.waitedTicks < Math.round(IMPOSTOR.vent.maxWaitInsideSec * config.tickRate)) {
+    goal.waitedTicks++;
+    // Try another exit on the network instead of waiting the whole time here.
+    if (goal.waitedTicks % config.tickRate === 0) {
+      const here = ventById(map, unit.inVent as string);
+      const clear = here ? ventNeighbours(map, here).filter((v) => watchersOf(state, ventCentre(v, map), noticeTiles, [unit.id], map, config).length === 0) : [];
+      if (clear.length > 0) {
+        const pick = state.rng.pick(clear);
+        hopToVent(state, unit, pick, map);
+        goal.ventId = pick.id;
+        goal.label = `hiding in the ${pick.room} vent`;
+      }
+    }
+    return;
+  }
+  tryExitVent(state, unit, map);
+  resetBotGoal(bot);
+  bot.pauseTicks = Math.round(state.rng.range(0.3, 1.0) * config.tickRate);
 }
 
 /** A hard impostor "finding" the body it just made. */
@@ -593,7 +708,7 @@ function followPath(bot: BotState, unit: Unit, state: SimState, map: GameMap, co
   const rng = state.rng;
   const ts = map.tileSize;
   const half = ts / 2;
-  const urgent = bot.goal.kind === 'hunt' || bot.goal.kind === 'report' || bot.goal.kind === 'flee' || bot.goal.kind === 'button';
+  const urgent = bot.goal.kind === 'hunt' || bot.goal.kind === 'report' || bot.goal.kind === 'flee' || bot.goal.kind === 'button' || bot.goal.kind === 'vent';
 
   // A brief pause now and then, sometimes turning to look around (not while in a hurry).
   if (!urgent && state.tick >= bot.nextPauseTick) {
@@ -707,6 +822,7 @@ function arrive(bot: BotState, unit: Unit, state: SimState, config: SimConfig): 
     case 'report':
     case 'follow':
     case 'button':
+    case 'vent':
       // Arrived at the last known spot; the goal's own logic takes it from here next tick.
       bot.path = [];
       bot.pathIndex = 0;
@@ -764,5 +880,7 @@ export function describeGoal(bot: BotState): string {
     case 'flee':
     case 'button':
       return bot.goal.label + paused;
+    case 'vent':
+      return bot.goal.label + (bot.goal.stage === 'inside' && bot.actionTicks === 0 && bot.goal.waitedTicks > 0 ? ' (waiting for the coast to clear)' : '');
   }
 }

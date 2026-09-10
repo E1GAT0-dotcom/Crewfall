@@ -61,6 +61,8 @@ export interface DifficultyTable {
   readonly selfReportChance: number;
   /** Chance an easy impostor fakes a visual task anyway (SPEC 9.6). */
   readonly fakeVisualTaskChance: number;
+  /** Chance an impostor bot vents away right after a kill when a vent is near (SPEC 9.6). */
+  readonly ventAfterKillChance: number;
 }
 
 export function difficultyTable(d: Difficulty): DifficultyTable {

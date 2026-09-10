@@ -1,6 +1,6 @@
 # STATUS — Crewfall (working title)
 
-**Current phase:** Phase 3 — Bot brains. Built and self-tested (all five steps); awaiting Greg's play-test sign-off before Phase 4. Phase 2 play-test verdict also outstanding.
+**Current phase:** Phase 4 — Impostor toolkit. Step 1 (vents) built and self-tested; steps 2–5 (sabotage, reactor and O2, doors, tuning) to come. Phase 2 and 3 play-test verdicts from Greg still outstanding.
 
 ## How to launch
 Double-click `play.bat` in the project folder. A browser tab opens with the game.
@@ -84,13 +84,27 @@ Close the black command window to stop it.
   accusation and a vote; killing in front of bots gets the player voted out; standing with a bot
   during a kill clears the player in that bot's eyes. 173 tests pass.
 
+- Phase 4 step 1: vents. Vent grates are drawn on the floor. As an impostor, V next to one climbs
+  in (you shrink into the grate and nobody can see you), a direction press hops to the next vent of
+  that network that way, V climbs out. Inside you cannot kill, report, do tasks or press the button;
+  a meeting pulls everyone out silently. Any bot that sees someone climb in or out within ten tiles is
+  certain they are an impostor, says "I saw them vent" in the meeting in its own voice, and a bot
+  saying it watched a kill or a vent now moves the other bots four times as much as a plain
+  accusation. Impostor bots slip into a nearby vent after a kill (60/70/80% on easy/normal/hard),
+  hop somewhere unwatched, wait a few seconds and climb out where nobody can see; easy impostors do
+  it sloppily. Impostors see the vents and their links on the Tab map. F3 marks vented bots with ▽
+  and lists vent sightings. 186 tests pass; simulator still 50% crew wins on normal.
+
 ## Not yet built
-- Phase 4 onward (SPEC.md §14): sabotage and vents, task minigames, more maps, final art and sound. Then Phase 4 onward: sabotage, minigames, maps, art and sound.
+- Phase 4 steps 2–5: sabotage (lights, comms, reactor, O2), doors, the emergency button refusing
+  during a sabotage, crew bot responses, simulator retune. Then Phases 5–7: task minigames, more
+  maps, final art and sound.
 
 ## Known limitations (by design so far)
-- The unit is a placeholder with idle, walk and dead frames; ghosts are the same sprite faded.
-- No sabotage, vents or task minigames yet (Phases 4 and 5). Tasks are done by holding E.
-- Vents, sabotage panels and doors exist in the map file but are not drawn or usable yet.
+- The unit is a placeholder with idle, walk and dead frames; ghosts are the same sprite faded. The
+  vent climb is a placeholder shrink until the Phase 7 animation.
+- No sabotage, doors or task minigames yet (Phases 4 and 5). Tasks are done by holding E.
+- Sabotage panels and doors exist in the map file but are not drawn or usable yet.
 
 ## Known bugs
 None known.
