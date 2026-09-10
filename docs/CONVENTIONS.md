@@ -11,7 +11,7 @@ Zero network calls, zero analytics, zero external services. The game works with 
 ## Machine and scripts
 Windows 11 with Git for Windows and Node.js LTS. All npm scripts are cross-platform.
 `play.bat` starts the dev server and opens the browser. `npm test` runs all tests.
-`npm run sim` runs the headless balance simulator (from Phase 3).
+`npm run sim -- --games 200 --map kestrel --difficulty normal` runs the headless balance simulator.
 
 ## Folder layout
 - `src/sim/` — pure game logic (rules, timers, tasks, win conditions). **No Phaser imports here.**

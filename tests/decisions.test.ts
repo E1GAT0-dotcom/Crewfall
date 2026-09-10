@@ -312,7 +312,7 @@ describe('behaviours in play', () => {
     expect(Math.hypot(me.x - friend.x, me.y - friend.y)).toBeLessThan(4 * TS);
   });
 
-  it('easy impostors only strike when nobody else is in sight at all; normal ones when nobody could see', () => {
+  it('easy impostors only strike when nobody else is anywhere near; normal ones when nobody could see', () => {
     const scene = (difficulty: 'easy' | 'normal') => {
       const s = game(19, { difficulty, crewVision: 0.5, impostorVision: 0.75 });
       const imp = s.units.find((u) => !u.isPlayer && u.role === 'impostor')!;

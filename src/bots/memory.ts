@@ -186,10 +186,11 @@ export function perceive(memory: BotMemory, observer: Unit, state: SimState, map
     if (canSee(map, observer.x, observer.y, radius, b.x, b.y)) memory.bodies.push({ tick: state.tick, victimId: b.unitId, room: roomAtPx(b, map) });
   }
 
-  // Kills this tick that the observer could see.
+  // Kills this tick that the observer could see, close enough to notice.
+  const noticeRange = Math.min(radius, p.killNoticeRangeTiles * ts);
   for (const ev of state.events) {
     if (ev.kind !== 'kill' || ev.killerId === observer.id) continue;
-    if (canSee(map, observer.x, observer.y, radius, ev.x, ev.y)) {
+    if (canSee(map, observer.x, observer.y, noticeRange, ev.x, ev.y)) {
       memory.kills.push({ tick: state.tick, killerId: ev.killerId, victimId: ev.victimId, room: roomAtPx(ev, map) });
     }
   }

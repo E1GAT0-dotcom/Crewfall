@@ -16,6 +16,7 @@ npm install
 npm run dev      # start the game
 npm test         # run all tests
 npm run typecheck
+npm run sim -- --games 200 --map kestrel --difficulty normal   # balance simulator
 ```
 
 ## Docs

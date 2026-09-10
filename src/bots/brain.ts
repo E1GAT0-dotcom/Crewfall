@@ -374,16 +374,17 @@ function stepFollow(bot: BotState, unit: Unit, state: SimState, map: GameMap, co
  * An impostor bot only kills when nobody could see it (SPEC 9.6).
  */
 export function witnessesOf(state: SimState, target: Unit, killer: Unit, map: GameMap, config: SimConfig): Unit[] {
+  const notice = brainsJson.perception.killNoticeRangeTiles * map.tileSize;
   return state.units.filter(
-    (u) => u.alive && u.id !== target.id && u.id !== killer.id && canSee(map, u.x, u.y, botSightRadius(u, state, config), target.x, target.y),
+    (u) => u.alive && u.id !== target.id && u.id !== killer.id && canSee(map, u.x, u.y, Math.min(notice, botSightRadius(u, state, config)), target.x, target.y),
   );
 }
 
 function considerHunting(bot: BotState, unit: Unit, state: SimState, map: GameMap, config: SimConfig): void {
   const table = difficultyTable(state.settings.difficulty);
   const inSight = visibleUnits(unit, state, map, config);
-  // Easy impostors only strike when the target is the only person they can see at all.
-  if (table.killCaution === 'onlyAlone' && inSight.length > 1) return;
+  // Easy impostors only strike when the target is the only person anywhere near.
+  if (table.killCaution === 'onlyAlone' && inSight.filter((u) => distance(unit, u) <= IMPOSTOR.easyAloneRangeTiles * map.tileSize).length > 1) return;
   const player = state.units[0] as Unit;
   const playerAccusedMe = accusersOf(state, unit.id).some((a) => a.id === player.id);
   let best: Unit | null = null;
@@ -423,7 +424,7 @@ function stepHunt(bot: BotState, unit: Unit, state: SimState, map: GameMap, conf
     resetBotGoal(bot);
     return;
   }
-  if (table.killCaution === 'onlyAlone' && visibleUnits(unit, state, map, config).length > 1) {
+  if (table.killCaution === 'onlyAlone' && visibleUnits(unit, state, map, config).filter((u) => distance(unit, u) <= IMPOSTOR.easyAloneRangeTiles * map.tileSize).length > 1) {
     resetBotGoal(bot);
     return;
   }

@@ -322,3 +322,20 @@ X/Y", and eight units in random colours drifting across the screen once the idle
 Y is the number of files the manifests name (plus the two manifests), so any new map, sprite sheet
 or, from Phase 7, sound is counted the moment it is listed. It stays up at least
 `loading.minSeconds` (1.5 s) so it can be seen on a fast machine.
+
+## 2026-09-09 — The fishbowl decision, on data
+With bots seeing half a screen through walls, the first simulator run on normal gave crew 95% wins
+(17 of 20 by tasks), 2.4 kills per game, and 28% ejection accuracy: impostors almost never found a
+moment nobody "could see". Rather than change the view-distance model, a kill is now only noticed
+within `perception.killNoticeRangeTiles` (10 tiles): at the far edge of a zoomed-out screen nobody
+spots a kill, for bots and for the impostor's own caution alike. That one change put normal at 51%
+crew wins over 200 games (SPEC 9.13 target 35–65%), 4 kills and 2.8 meetings per game, 5 minutes
+average, 50% ejection accuracy; hard at 56%. Easy stayed at 100% crew because its impostors waited
+for nobody to be in sight at all, so easy now means nobody within `impostor.easyAloneRangeTiles`
+(15 tiles) instead, which put easy at 50% crew wins over 50 games.
+
+## 2026-09-09 — The simulator
+`npm run sim -- --games 200 --map kestrel --difficulty normal` plays all-bot games headless (the
+player's seat becomes a bot with its own personality) and prints crew and impostor wins, endings by
+reason, average length, meetings, kills and ejection accuracy, then says whether the crew win rate
+is inside the 35–65% band. Any settings key can be passed as `--key value`. About a second a game.

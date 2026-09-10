@@ -139,6 +139,8 @@ export interface SimState {
   readonly seed: number;
   readonly settings: GameSettings;
   readonly rng: Rng;
+  /** The numbers the game runs on, kept so headless tools can add bots later. */
+  readonly config: SimConfig;
   tick: number;
   phase: Phase;
   units: Unit[];
@@ -215,6 +217,7 @@ export function createGame(map: GameMap, settings: GameSettings, seed: number, c
     seed,
     settings,
     rng,
+    config,
     tick: 0,
     phase: 'play',
     units,

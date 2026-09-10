@@ -1,6 +1,6 @@
 # STATUS — Crewfall (working title)
 
-**Current phase:** Phase 3 — Bot brains, steps 1–4 of 5 done (memory; suspicion; personalities and decisions; voices and parser). Phase 2 built and self-tested; awaiting Greg's play-test sign-off.
+**Current phase:** Phase 3 — Bot brains. Built and self-tested (all five steps); awaiting Greg's play-test sign-off before Phase 4. Phase 2 play-test verdict also outstanding.
 
 ## How to launch
 Double-click `play.bat` in the project folder. A browser tab opens with the game.
@@ -79,8 +79,13 @@ Close the black command window to stop it.
 - Loading screen: stars, title, "loading assets X/Y" with a bar, and units in random colours drifting
   past. The total comes from the manifests, so new assets are counted automatically.
 
+- Phase 3 step 5: the headless simulator (npm run sim) and tuning. On normal, 200 games: crew win
+  51%, inside the spec's 35–65% band; hard 56%. Scenario tests: a witnessed kill leads to an
+  accusation and a vote; killing in front of bots gets the player voted out; standing with a bot
+  during a kill clears the player in that bot's eyes. 173 tests pass.
+
 ## Not yet built
-- Phase 3 step 5: the headless simulator (npm run sim), tuning to the 35–65% crew win band, docs and the Phase 3 report. Then Phase 4 onward: sabotage, minigames, maps, art and sound.
+- Phase 4 onward (SPEC.md §14): sabotage and vents, task minigames, more maps, final art and sound. Then Phase 4 onward: sabotage, minigames, maps, art and sound.
 
 ## Known limitations (by design so far)
 - The unit is a placeholder with idle, walk and dead frames; ghosts are the same sprite faded.

@@ -10,7 +10,9 @@
     "difficulty.impostorFaking: sloppy / good / perfect. killCaution: onlyAlone (nobody in sight at all), normal (nobody could see), tracksWitnesses (normal plus self-reports and framing).",
     "difficulty.crossCheckClaims: chance a bot checks a claim against its memory. playerTargeting: random / normal / prioritize (the player when the player has accused it).",
     "crew.buddy: how long (seconds) a buddying stretch lasts and how close to stay. crew.fear: top suspect within this many tiles with nobody else near makes a bot walk to company.",
-    "claims.alibiSlackSec: an alibi (\"i was in Medbay\") covers the moment of the death plus or minus this many seconds."
+    "claims.alibiSlackSec: an alibi (\"i was in Medbay\") covers the moment of the death plus or minus this many seconds.",
+    "perception.killNoticeRangeTiles: a kill is only noticed (and only counts as witnessed) within this distance; at the far edge of a zoomed-out screen nobody spots it.",
+    "impostor.easyAloneRangeTiles: an easy impostor only strikes when nobody but the victim is within this distance."
   ],
   "difficulty": {
     "easy": {
@@ -49,7 +51,8 @@
     "taskSpotRangeTiles": 1.3,
     "bodyRangeTiles": 2.5,
     "minSightingSec": 0.5,
-    "maxSightingsPerBot": 400
+    "maxSightingsPerBot": 400,
+    "killNoticeRangeTiles": 10
   },
   "claims": {
     "windowSec": 45,
@@ -87,6 +90,7 @@
       8
     ],
     "fleeAfterKillTiles": 12,
-    "avoidPlayerAloneOnHard": true
+    "avoidPlayerAloneOnHard": true,
+    "easyAloneRangeTiles": 15
   }
 }
